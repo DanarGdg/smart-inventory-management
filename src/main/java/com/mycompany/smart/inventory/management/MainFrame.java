@@ -303,7 +303,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         jTextField6.setText("jTextField1");
 
-        jLabel24.setText("Supplier");
+        jLabel24.setText("Satuan");
 
         jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
