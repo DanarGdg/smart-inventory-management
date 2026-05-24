@@ -507,19 +507,15 @@ public class MainFrame extends javax.swing.JFrame {
 
         jLabel14.setText(":");
 
-        jTextField1.setText("jTextField1");
+        jTextField1.addActionListener(this::jTextField1ActionPerformed);
 
         jLabel15.setText(":");
 
         jLabel16.setText("Nama Barang");
 
-        jTextField2.setText("jTextField1");
-
         jLabel17.setText(":");
 
         jLabel18.setText("Kategori");
-
-        jTextField4.setText("jTextField1");
 
         jLabel19.setText("Stok Awal");
 
@@ -529,11 +525,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         jLabel22.setText(":");
 
-        jTextField5.setText("jTextField1");
-
         jLabel23.setText(":");
-
-        jTextField6.setText("jTextField1");
 
         jLabel24.setText("Satuan");
 
@@ -801,11 +793,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         jLabel40.setText(":");
 
-        jTextField9.setText("jTextField3");
-
         jLabel41.setText(":");
-
-        jTextField10.setText("jTextField3");
 
         jLabel42.setText("Jumlah Keluar");
 
@@ -826,7 +814,7 @@ public class MainFrame extends javax.swing.JFrame {
         jScrollPane5.setViewportView(jTable5);
 
         jLabel45.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel45.setText("Riwayat Stok Keluar");
+        jLabel45.setText("Riwayat Stok Masuk");
 
         jLabel47.setText("Tanggal Keluar");
 
@@ -1240,6 +1228,10 @@ public class MainFrame extends javax.swing.JFrame {
     private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_jButton5ActionPerformed
+
+    private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jTextField1ActionPerformed
 
     /**
      * @param args the command line arguments
