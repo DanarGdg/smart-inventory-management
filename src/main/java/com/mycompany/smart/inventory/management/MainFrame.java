@@ -7,13 +7,17 @@ package com.mycompany.smart.inventory.management;
 import com.mycompany.smart.inventory.management.dao.BarangDAO;
 import com.mycompany.smart.inventory.management.dao.StokMasukDAO;
 import com.mycompany.smart.inventory.management.service.StokMasukService;
+import com.mycompany.smart.inventory.management.service.BarangService;
 import java.util.List;
 import com.mycompany.smart.inventory.management.model.Barang;
 import javax.swing.table.DefaultTableModel;
 import com.mycompany.smart.inventory.management.model.StokMasuk;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
 import javax.swing.JOptionPane;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 /**
  *
@@ -24,6 +28,8 @@ public class MainFrame extends javax.swing.JFrame {
     private BarangDAO barangDAO = new BarangDAO();
     private StokMasukDAO stokMasukDAO = new StokMasukDAO();
     private StokMasukService stokMasukService = new StokMasukService();
+    private BarangService barangService = new BarangService();
+    private String selectedKodeBarang = null;
 
     private void loadComboBarangMasuk() {
         cmbBarangMasuk.removeAllItems();
@@ -33,6 +39,93 @@ public class MainFrame extends javax.swing.JFrame {
         for (Barang barang : listBarang) {
             cmbBarangMasuk.addItem(barang.getKodeBarang() + " - " + barang.getNamaBarang());
         }
+    }
+
+    private void loadKategoriDropdown() {
+        jComboBox1.removeAllItems();
+        
+        List<Map<String, Object>> listKategori = barangDAO.getAllKategori();
+        
+        for (Map<String, Object> kategori : listKategori) {
+            jComboBox1.addItem(kategori.get("nama").toString());
+        }
+    }
+
+    private int getIdKategoriByName(String namaKategori) {
+        List<Map<String, Object>> listKategori = barangDAO.getAllKategori();
+        
+        for (Map<String, Object> kategori : listKategori) {
+            if (kategori.get("nama").toString().equals(namaKategori)) {
+                return (int) kategori.get("id");
+            }
+        }
+        
+        return -1;
+    }
+
+    private void loadDataBarang() {
+        DefaultTableModel model = new DefaultTableModel();
+        
+        model.addColumn("No");
+        model.addColumn("Kode");
+        model.addColumn("Nama Barang");
+        model.addColumn("Kategori");
+        model.addColumn("Stok");
+        model.addColumn("Minimal");
+        
+        List<Barang> list = barangDAO.getAllBarang();
+        
+        int no = 1;
+        
+        for (Barang barang : list) {
+            model.addRow(new Object[]{
+                no++,
+                barang.getKodeBarang(),
+                barang.getNamaBarang(),
+                barang.getNamaKategori(),
+                barang.getStok(),
+                barang.getStokMinimum()
+            });
+        }
+        
+        jTable3.setModel(model);
+        
+        // Add row selection listener
+        jTable3.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                int selectedRow = jTable3.getSelectedRow();
+                if (selectedRow >= 0) {
+                    String kodeBarang = (String) jTable3.getValueAt(selectedRow, 1);
+                    loadBarangForEdit(kodeBarang);
+                }
+            }
+        });
+    }
+
+    private void loadBarangForEdit(String kodeBarang) {
+        Barang barang = barangDAO.getBarangByKode(kodeBarang);
+        
+        if (barang != null) {
+            selectedKodeBarang = barang.getKodeBarang();
+            jTextField1.setText(barang.getKodeBarang());
+            jTextField2.setText(barang.getNamaBarang());
+            jComboBox1.setSelectedItem(barang.getNamaKategori());
+            jTextField4.setText(String.valueOf(barang.getStok()));
+            jTextField5.setText(String.valueOf(barang.getStokMinimum()));
+            jTextField6.setText(barang.getSatuan());
+        }
+    }
+
+    private void clearFormBarang() {
+        selectedKodeBarang = null;
+        jTextField1.setText("");
+        jTextField2.setText("");
+        jComboBox1.setSelectedIndex(0);
+        jTextField4.setText("");
+        jTextField5.setText("");
+        jTextField6.setText("");
+        jTable3.clearSelection();
     }
 
     private void setupTanggalMasukSpinner() {
@@ -84,6 +177,8 @@ public class MainFrame extends javax.swing.JFrame {
         setupTanggalMasukSpinner();
         loadComboBarangMasuk();
         loadRiwayatStokMasuk();
+        loadKategoriDropdown();
+        loadDataBarang();
     }
 
     /**
@@ -896,19 +991,94 @@ public class MainFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
+        try {
+            String kodeBarang = jTextField1.getText();
+            String namaBarang = jTextField2.getText();
+            String kategoriSelected = jComboBox1.getSelectedItem().toString();
+            int idKategori = getIdKategoriByName(kategoriSelected);
+            String stokAwal = jTextField4.getText();
+            String stokMinimum = jTextField5.getText();
+            String satuan = jTextField6.getText();
+
+            boolean berhasil = barangService.tambahBarang(kodeBarang, namaBarang, idKategori, stokAwal, stokMinimum, satuan);
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "Barang berhasil ditambahkan");
+                clearFormBarang();
+                loadDataBarang();
+                loadComboBarangMasuk();
+                loadRiwayatStokMasuk();
+            }
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Gagal menambahkan barang: " + e.getMessage());
+        }
     }//GEN-LAST:event_jButton1ActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        // TODO add your handling code here:
+        try {
+            if (selectedKodeBarang == null || selectedKodeBarang.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Pilih barang dari tabel untuk diupdate");
+                return;
+            }
+
+            String kodeBarang = selectedKodeBarang;
+            String namaBarang = jTextField2.getText();
+            String kategoriSelected = jComboBox1.getSelectedItem().toString();
+            int idKategori = getIdKategoriByName(kategoriSelected);
+            String stokAwal = jTextField4.getText();
+            String stokMinimum = jTextField5.getText();
+            String satuan = jTextField6.getText();
+
+            boolean berhasil = barangService.updateBarang(kodeBarang, namaBarang, idKategori, stokAwal, stokMinimum, satuan);
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "Barang berhasil diupdate");
+                clearFormBarang();
+                loadDataBarang();
+                loadComboBarangMasuk();
+                loadRiwayatStokMasuk();
+            }
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Gagal mengupdate barang: " + e.getMessage());
+        }
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
-        // TODO add your handling code here:
+        clearFormBarang();
     }//GEN-LAST:event_jButton3ActionPerformed
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-        // TODO add your handling code here:
+        try {
+            if (selectedKodeBarang == null || selectedKodeBarang.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Pilih barang dari tabel untuk dihapus");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                    "Apakah Anda yakin ingin menghapus barang ini?", 
+                    "Konfirmasi Hapus", 
+                    JOptionPane.YES_NO_OPTION);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                boolean berhasil = barangService.hapusBarang(selectedKodeBarang);
+
+                if (berhasil) {
+                    JOptionPane.showMessageDialog(this, "Barang berhasil dihapus");
+                    clearFormBarang();
+                    loadDataBarang();
+                    loadComboBarangMasuk();
+                    loadRiwayatStokMasuk();
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Gagal menghapus barang: " + e.getMessage());
+        }
     }//GEN-LAST:event_jButton4ActionPerformed
 
     private void jButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton6ActionPerformed
