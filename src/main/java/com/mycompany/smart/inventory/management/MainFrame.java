@@ -5,11 +5,14 @@
 package com.mycompany.smart.inventory.management;
 
 import com.mycompany.smart.inventory.management.dao.BarangDAO;
+import com.mycompany.smart.inventory.management.dao.StokKeluarDAO;
 import com.mycompany.smart.inventory.management.dao.StokMasukDAO;
-import com.mycompany.smart.inventory.management.service.StokMasukService;
 import com.mycompany.smart.inventory.management.service.BarangService;
+import com.mycompany.smart.inventory.management.service.StokKeluarService;
+import com.mycompany.smart.inventory.management.service.StokMasukService;
 import java.util.List;
 import com.mycompany.smart.inventory.management.model.Barang;
+import com.mycompany.smart.inventory.management.model.StokKeluar;
 import javax.swing.table.DefaultTableModel;
 import com.mycompany.smart.inventory.management.model.StokMasuk;
 import java.text.SimpleDateFormat;
@@ -27,7 +30,9 @@ public class MainFrame extends javax.swing.JFrame {
 
     private BarangDAO barangDAO = new BarangDAO();
     private StokMasukDAO stokMasukDAO = new StokMasukDAO();
+    private StokKeluarDAO stokKeluarDAO = new StokKeluarDAO();
     private StokMasukService stokMasukService = new StokMasukService();
+    private StokKeluarService stokKeluarService = new StokKeluarService();
     private BarangService barangService = new BarangService();
     private String selectedKodeBarang = null;
 
@@ -140,6 +145,53 @@ public class MainFrame extends javax.swing.JFrame {
         spnTanggalMasuk.setEditor(editor);
     }
 
+    private void setupTanggalKeluarSpinner() {
+        jSpinner2.setModel(new javax.swing.SpinnerDateModel());
+
+        javax.swing.JSpinner.DateEditor editor
+                = new javax.swing.JSpinner.DateEditor(
+                        jSpinner2,
+                        "yyyy-MM-dd"
+                );
+
+        jSpinner2.setEditor(editor);
+    }
+
+    private void loadComboBarangKeluar() {
+        jComboBox3.removeAllItems();
+
+        List<Barang> listBarang = barangDAO.getAllBarang();
+
+        for (Barang barang : listBarang) {
+            jComboBox3.addItem(barang.getKodeBarang() + " - " + barang.getNamaBarang());
+        }
+    }
+
+    private void loadRiwayatStokKeluar() {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Tanggal");
+        model.addColumn("Nama Barang");
+        model.addColumn("Jumlah");
+        model.addColumn("Departemen Tujuan");
+
+        List<StokKeluar> list = stokKeluarDAO.getRiwayatStokKeluar();
+
+        int no = 1;
+        for (StokKeluar sk : list) {
+            model.addRow(new Object[]{
+                no++,
+                sk.getTanggalKeluar(),
+                sk.getNamaBarang(),
+                sk.getJumlahKeluar(),
+                sk.getDepartemenTujuan()
+            });
+        }
+
+        jTable5.setModel(model);
+    }
+
     private void loadRiwayatStokMasuk() {
         DefaultTableModel model = new DefaultTableModel();
 
@@ -176,7 +228,9 @@ public class MainFrame extends javax.swing.JFrame {
 
         setupTanggalMasukSpinner();
         loadComboBarangMasuk();
+        loadComboBarangKeluar();
         loadRiwayatStokMasuk();
+        loadRiwayatStokKeluar();
         loadKategoriDropdown();
         loadDataBarang();
     }
@@ -772,7 +826,7 @@ public class MainFrame extends javax.swing.JFrame {
         jScrollPane5.setViewportView(jTable5);
 
         jLabel45.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel45.setText("Riwayat Stok Masuk");
+        jLabel45.setText("Riwayat Stok Keluar");
 
         jLabel47.setText("Tanggal Keluar");
 
@@ -1093,7 +1147,9 @@ public class MainFrame extends javax.swing.JFrame {
                     clearFormBarang();
                     loadDataBarang();
                     loadComboBarangMasuk();
+                    loadComboBarangKeluar();
                     loadRiwayatStokMasuk();
+                    loadRiwayatStokKeluar();
                 }
             }
         } catch (IllegalArgumentException e) {
@@ -1104,7 +1160,38 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jButton4ActionPerformed
 
     private void jButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton6ActionPerformed
-        // TODO add your handling code here:
+        try {
+            String selectedBarang = jComboBox3.getSelectedItem().toString();
+            String kodeBarang = selectedBarang.split(" - ")[0];
+
+            String departemenTujuan = jTextField9.getText();
+            String jumlahKeluarText = jTextField10.getText();
+
+            Date tanggal = (Date) jSpinner2.getValue();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            String tanggalKeluar = sdf.format(tanggal);
+
+            boolean berhasil = stokKeluarService.simpanStokKeluar(
+                    kodeBarang,
+                    departemenTujuan,
+                    jumlahKeluarText,
+                    tanggalKeluar
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "Stok keluar berhasil disimpan");
+                jTextField9.setText("");
+                jTextField10.setText("");
+
+                loadComboBarangMasuk();
+                loadComboBarangKeluar();
+                loadRiwayatStokMasuk();
+                loadRiwayatStokKeluar();
+                loadDataBarang();
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
     }//GEN-LAST:event_jButton6ActionPerformed
 
     private void ResetFilterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ResetFilterActionPerformed
@@ -1141,7 +1228,9 @@ public class MainFrame extends javax.swing.JFrame {
                 txtJumlahMasuk.setText("");
 
                 loadComboBarangMasuk();
+                loadComboBarangKeluar();
                 loadRiwayatStokMasuk();
+                loadRiwayatStokKeluar();
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, e.getMessage());
