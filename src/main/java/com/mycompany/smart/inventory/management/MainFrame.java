@@ -388,7 +388,6 @@ public class MainFrame extends javax.swing.JFrame {
             }
         }
     } catch (Exception e) {
-        // Membantu proses debugging jika ada masalah database
         System.out.println("Error saat memuat filter kategori: " + e.getMessage());
         e.printStackTrace();
     }
