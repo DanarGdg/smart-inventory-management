@@ -15,8 +15,8 @@ public class BarangService {
     private BarangDAO barangDAO = new BarangDAO();
 
     public boolean tambahBarang(String kodeBarang, String namaBarang,
-                               int idKategori, String stokAwalText,
-                               String stokMinimumText, String satuan) {
+            int idKategori, String stokAwalText,
+            String stokMinimumText, String satuan) {
 
         if (kodeBarang == null || kodeBarang.trim().isEmpty()) {
             throw new IllegalArgumentException("Kode barang tidak boleh kosong");
@@ -65,12 +65,12 @@ public class BarangService {
         }
 
         return barangDAO.tambahBarang(kodeBarang, namaBarang, idKategori,
-                                     stokAwal, stokMinimum, satuan);
+                stokAwal, stokMinimum, satuan);
     }
 
     public boolean updateBarang(String kodeBarang, String namaBarang,
-                               int idKategori, String stokAwalText,
-                               String stokMinimumText, String satuan) {
+            int idKategori, String stokAwalText,
+            String stokMinimumText, String satuan) {
 
         if (kodeBarang == null || kodeBarang.trim().isEmpty()) {
             throw new IllegalArgumentException("Kode barang tidak boleh kosong");
@@ -119,7 +119,7 @@ public class BarangService {
         }
 
         return barangDAO.updateBarang(kodeBarang, namaBarang, idKategori,
-                                     stokAwal, stokMinimum, satuan);
+                stokAwal, stokMinimum, satuan);
     }
 
     public boolean hapusBarang(String kodeBarang) {

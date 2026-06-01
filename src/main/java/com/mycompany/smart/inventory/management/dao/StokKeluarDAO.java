@@ -85,9 +85,7 @@ public class StokKeluarDAO {
                 + "JOIN barang b ON sk.kode_barang = b.kode_barang "
                 + "ORDER BY sk.id_keluar DESC";
 
-        try (Connection conn = DBConfig.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 StokKeluar stokKeluar = new StokKeluar(
@@ -102,6 +100,50 @@ public class StokKeluarDAO {
             }
         } catch (Exception e) {
             System.out.println("Gagal mengambil riwayat stok keluar: " + e.getMessage());
+        }
+
+        return list;
+    }
+
+    public List<StokKeluar> searchRiwayatStokKeluar(String keyword) {
+        List<StokKeluar> list = new ArrayList<>();
+
+        String sql = "SELECT sk.id_keluar, sk.kode_barang, b.nama_barang, "
+                + "sk.departemen_tujuan, sk.jumlah_keluar, sk.tanggal_keluar "
+                + "FROM stok_keluar sk "
+                + "JOIN barang b ON sk.kode_barang = b.kode_barang "
+                + "WHERE b.nama_barang LIKE ? "
+                + "OR sk.kode_barang LIKE ? "
+                + "OR sk.departemen_tujuan LIKE ? "
+                + "OR sk.tanggal_keluar LIKE ? "
+                + "ORDER BY sk.id_keluar DESC";
+
+        try (Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            String searchKeyword = "%" + keyword + "%";
+
+            ps.setString(1, searchKeyword);
+            ps.setString(2, searchKeyword);
+            ps.setString(3, searchKeyword);
+            ps.setString(4, searchKeyword);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    StokKeluar stokKeluar = new StokKeluar(
+                            rs.getInt("id_keluar"),
+                            rs.getString("kode_barang"),
+                            rs.getString("nama_barang"),
+                            rs.getString("departemen_tujuan"),
+                            rs.getInt("jumlah_keluar"),
+                            rs.getDate("tanggal_keluar")
+                    );
+
+                    list.add(stokKeluar);
+                }
+            }
+
+        } catch (Exception e) {
+            System.out.println("Gagal mencari riwayat stok keluar: " + e.getMessage());
         }
 
         return list;

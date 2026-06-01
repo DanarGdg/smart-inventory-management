@@ -66,7 +66,7 @@ public class BarangDAO {
                             namaKategori, stok, stokMinimum, satuan
                     );
                 }
-                
+
                 list.add(barang);
             }
 
@@ -77,9 +77,9 @@ public class BarangDAO {
         return list;
     }
 
-    public boolean tambahBarang(String kodeBarang, String namaBarang, 
-                                int idKategori, int stokAwal, 
-                                int stokMinimum, String satuan) {
+    public boolean tambahBarang(String kodeBarang, String namaBarang,
+            int idKategori, int stokAwal,
+            int stokMinimum, String satuan) {
         String sql = "INSERT INTO barang (kode_barang, nama_barang, id_kategori, stok, stok_minimum, satuan) "
                 + "VALUES (?, ?, ?, ?, ?, ?)";
 
@@ -103,14 +103,15 @@ public class BarangDAO {
     }
 
     public boolean updateBarang(String kodeBarang, String namaBarang,
-                               int idKategori, int stokAwal,
-                               int stokMinimum, String satuan) {
+            int idKategori, int stokAwal,
+            int stokMinimum, String satuan) {
         String sql = "UPDATE barang SET nama_barang = ?, id_kategori = ?, stok = ?, stok_minimum = ?, satuan = ? "
                 + "WHERE kode_barang = ?";
 
         try {
             Connection conn = DBConfig.getConnection();
             PreparedStatement ps = conn.prepareStatement(sql);
+
             ps.setString(1, namaBarang);
             ps.setInt(2, idKategori);
             ps.setInt(3, stokAwal);
@@ -118,8 +119,14 @@ public class BarangDAO {
             ps.setString(5, satuan);
             ps.setString(6, kodeBarang);
 
-            ps.executeUpdate();
-            return true;
+            int affectedRows = ps.executeUpdate();
+
+            if (affectedRows > 0) {
+                return true;
+            } else {
+                System.out.println("Update gagal: kode_barang tidak ditemukan = " + kodeBarang);
+                return false;
+            }
 
         } catch (Exception e) {
             System.out.println("Gagal update barang: " + e.getMessage());

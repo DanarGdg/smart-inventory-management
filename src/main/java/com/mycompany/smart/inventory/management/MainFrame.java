@@ -113,6 +113,74 @@ public class MainFrame extends javax.swing.JFrame {
         setTableStokKritisColor();
     }
 
+    private void searchDataBarang(String keyword) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Kode");
+        model.addColumn("Nama Barang");
+        model.addColumn("Kategori");
+        model.addColumn("Stok");
+        model.addColumn("Minimal");
+
+        List<Barang> list = barangDAO.getAllBarang();
+
+        int no = 1;
+
+        for (Barang barang : list) {
+            boolean cocokKode = barang.getKodeBarang()
+                    .toLowerCase()
+                    .contains(keyword.toLowerCase());
+
+            boolean cocokNama = barang.getNamaBarang()
+                    .toLowerCase()
+                    .contains(keyword.toLowerCase());
+
+            boolean cocokKategori = barang.getNamaKategori()
+                    .toLowerCase()
+                    .contains(keyword.toLowerCase());
+
+            if (cocokKode || cocokNama || cocokKategori) {
+                model.addRow(new Object[]{
+                    no++,
+                    barang.getKodeBarang(),
+                    barang.getNamaBarang(),
+                    barang.getNamaKategori(),
+                    barang.getStok(),
+                    barang.getStokMinimum()
+                });
+            }
+        }
+
+        jTable3.setModel(model);
+    }
+
+    private void searchRiwayatStokMasuk(String keyword) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Tanggal");
+        model.addColumn("Nama Barang");
+        model.addColumn("Jumlah");
+        model.addColumn("Supplier");
+
+        List<StokMasuk> list = stokMasukDAO.searchRiwayatStokMasuk(keyword);
+
+        int no = 1;
+
+        for (StokMasuk sm : list) {
+            model.addRow(new Object[]{
+                no++,
+                sm.getTanggalMasuk(),
+                sm.getNamaBarang(),
+                sm.getJumlahMasuk(),
+                sm.getSupplier()
+            });
+        }
+
+        tblRiwayatStokMasuk.setModel(model);
+    }
+
     private void loadComboBarangMasuk() {
         cmbBarangMasuk.removeAllItems();
 
@@ -171,18 +239,6 @@ public class MainFrame extends javax.swing.JFrame {
         }
 
         jTable3.setModel(model);
-
-        // Add row selection listener
-        jTable3.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                int selectedRow = jTable3.getSelectedRow();
-                if (selectedRow >= 0) {
-                    String kodeBarang = (String) jTable3.getValueAt(selectedRow, 1);
-                    loadBarangForEdit(kodeBarang);
-                }
-            }
-        });
     }
 
     private void loadBarangForEdit(String kodeBarang) {
@@ -232,6 +288,32 @@ public class MainFrame extends javax.swing.JFrame {
                 );
 
         jSpinner2.setEditor(editor);
+    }
+
+    private void searchRiwayatStokKeluar(String keyword) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Tanggal");
+        model.addColumn("Nama Barang");
+        model.addColumn("Jumlah");
+        model.addColumn("Departemen");
+
+        List<StokKeluar> list = stokKeluarDAO.searchRiwayatStokKeluar(keyword);
+
+        int no = 1;
+
+        for (StokKeluar sk : list) {
+            model.addRow(new Object[]{
+                no++,
+                sk.getTanggalKeluar(),
+                sk.getNamaBarang(),
+                sk.getJumlahKeluar(),
+                sk.getDepartemenTujuan()
+            });
+        }
+
+        jTable5.setModel(model);
     }
 
     private void loadComboBarangKeluar() {
@@ -305,7 +387,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         setupTanggalMasukSpinner();
         setupTanggalKeluarSpinner();
-        
+
         loadComboBarangMasuk();
         loadComboBarangKeluar();
         loadRiwayatStokMasuk();
@@ -678,15 +760,19 @@ public class MainFrame extends javax.swing.JFrame {
                 "No", "Kode", "Nama Barang", "Kategori", "Stok", "Minimal"
             }
         ));
+        jTable3.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jTable3MouseClicked(evt);
+            }
+        });
         jScrollPane3.setViewportView(jTable3);
 
         jButton5.setText("Refresh");
         jButton5.addActionListener(this::jButton5ActionPerformed);
 
-        jTextField3.setText("Masukkan barang yang mau dicari");
         jTextField3.addActionListener(this::jTextField3ActionPerformed);
 
-        jButton7.setText("jButton7");
+        jButton7.setText("Search");
         jButton7.addActionListener(this::jButton7ActionPerformed);
 
         jLabel43.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
@@ -853,7 +939,6 @@ public class MainFrame extends javax.swing.JFrame {
 
         spnTanggalMasuk.setModel(new javax.swing.SpinnerDateModel());
 
-        jTextField7.setText("Masukkan riwayat  yang mau dicarri");
         jTextField7.addActionListener(this::jTextField7ActionPerformed);
 
         jButton8.setText("Cari");
@@ -983,7 +1068,6 @@ public class MainFrame extends javax.swing.JFrame {
 
         jSpinner2.setModel(new javax.swing.SpinnerDateModel());
 
-        jTextField8.setText("Masukkan barang yang mau dicari");
         jTextField8.addActionListener(this::jTextField8ActionPerformed);
 
         jButton10.setText("Cari");
@@ -1242,11 +1326,18 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jTextField12ActionPerformed
 
     private void jButton10ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton10ActionPerformed
-        // TODO add your handling code here:
+        String keyword = jTextField8.getText();
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            loadRiwayatStokKeluar();
+            return;
+        }
+
+        searchRiwayatStokKeluar(keyword.trim());
     }//GEN-LAST:event_jButton10ActionPerformed
 
     private void jTextField8ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField8ActionPerformed
-        // TODO add your handling code here:
+        jButton10ActionPerformed(evt);
     }//GEN-LAST:event_jTextField8ActionPerformed
 
     private void jButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton6ActionPerformed
@@ -1272,6 +1363,7 @@ public class MainFrame extends javax.swing.JFrame {
                 JOptionPane.showMessageDialog(this, "Stok keluar berhasil disimpan");
                 jTextField9.setText("");
                 jTextField10.setText("");
+                jTextField8.setText("");
 
                 loadComboBarangMasuk();
                 loadComboBarangKeluar();
@@ -1285,11 +1377,18 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jButton6ActionPerformed
 
     private void jButton8ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton8ActionPerformed
-        // TODO add your handling code here:
+        String keyword = jTextField7.getText();
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            loadRiwayatStokMasuk();
+            return;
+        }
+
+        searchRiwayatStokMasuk(keyword.trim());
     }//GEN-LAST:event_jButton8ActionPerformed
 
     private void jTextField7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField7ActionPerformed
-        // TODO add your handling code here:
+        jButton8ActionPerformed(evt);
     }//GEN-LAST:event_jTextField7ActionPerformed
 
     private void btnSimpanStokMasukActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSimpanStokMasukActionPerformed
@@ -1316,6 +1415,7 @@ public class MainFrame extends javax.swing.JFrame {
 
                 txtSupplierMasuk.setText("");
                 txtJumlahMasuk.setText("");
+                jTextField7.setText("");
 
                 loadComboBarangMasuk();
                 loadComboBarangKeluar();
@@ -1329,19 +1429,28 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_btnSimpanStokMasukActionPerformed
 
     private void jButton7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton7ActionPerformed
-        // TODO add your handling code here:
+        String keyword = jTextField3.getText();
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            loadDataBarang();
+            return;
+        }
+
+        searchDataBarang(keyword.trim());
     }//GEN-LAST:event_jButton7ActionPerformed
 
     private void jTextField3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField3ActionPerformed
-        // TODO add your handling code here:
+        jButton7ActionPerformed(evt);
     }//GEN-LAST:event_jTextField3ActionPerformed
 
     private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
-        // Refresh data halaman Barang
         loadDataBarang();
         loadKategoriDropdown();
         loadComboBarangMasuk();
         loadRiwayatStokMasuk();
+
+        jTextField3.setText("");
+
         clearFormBarang();
         JOptionPane.showMessageDialog(this, "Data berhasil direfresh");
     }//GEN-LAST:event_jButton5ActionPerformed
@@ -1393,19 +1502,49 @@ public class MainFrame extends javax.swing.JFrame {
             String namaBarang = jTextField2.getText();
             String kategoriSelected = jComboBox1.getSelectedItem().toString();
             int idKategori = getIdKategoriByName(kategoriSelected);
+
+            if (idKategori == -1) {
+                JOptionPane.showMessageDialog(this, "Kategori tidak valid");
+                return;
+            }
+
             String stokAwal = jTextField4.getText();
             String stokMinimum = jTextField5.getText();
             String satuan = jTextField6.getText();
 
-            boolean berhasil = barangService.updateBarang(kodeBarang, namaBarang, idKategori, stokAwal, stokMinimum, satuan);
+            System.out.println("=== DEBUG UPDATE BARANG ===");
+            System.out.println("selectedKodeBarang = " + selectedKodeBarang);
+            System.out.println("kodeBarang = " + kodeBarang);
+            System.out.println("namaBarang = " + namaBarang);
+            System.out.println("kategoriSelected = " + kategoriSelected);
+            System.out.println("idKategori = " + idKategori);
+            System.out.println("stokAwal = " + stokAwal);
+            System.out.println("stokMinimum = " + stokMinimum);
+            System.out.println("satuan = " + satuan);
+
+            boolean berhasil = barangService.updateBarang(
+                    kodeBarang,
+                    namaBarang,
+                    idKategori,
+                    stokAwal,
+                    stokMinimum,
+                    satuan
+            );
 
             if (berhasil) {
                 JOptionPane.showMessageDialog(this, "Barang berhasil diupdate");
+
                 clearFormBarang();
                 loadDataBarang();
                 loadComboBarangMasuk();
+                loadComboBarangKeluar();
                 loadRiwayatStokMasuk();
+                loadRiwayatStokKeluar();
+                loadDashboard();
+            } else {
+                JOptionPane.showMessageDialog(this, "Barang gagal diupdate");
             }
+
         } catch (IllegalArgumentException e) {
             JOptionPane.showMessageDialog(this, e.getMessage());
         } catch (Exception e) {
@@ -1446,6 +1585,20 @@ public class MainFrame extends javax.swing.JFrame {
     private void btnCariStokKritisActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCariStokKritisActionPerformed
         loadTableStokKritisByKeyword(txtCariStokKritis.getText());
     }//GEN-LAST:event_btnCariStokKritisActionPerformed
+
+    private void jTable3MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTable3MouseClicked
+        int selectedRow = jTable3.getSelectedRow();
+
+        if (selectedRow >= 0) {
+            String kodeBarang = jTable3.getValueAt(selectedRow, 1).toString();
+
+            selectedKodeBarang = kodeBarang;
+
+            loadBarangForEdit(kodeBarang);
+
+            System.out.println("Barang dipilih dari mouseClicked: " + selectedKodeBarang);
+        }
+    }//GEN-LAST:event_jTable3MouseClicked
 
     /**
      * @param args the command line arguments
