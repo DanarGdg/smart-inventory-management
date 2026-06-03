@@ -376,6 +376,67 @@ public class MainFrame extends javax.swing.JFrame {
 
         tblRiwayatStokMasuk.setModel(model);
     }
+    private void loadFilterKategori() {
+    cmbFilterKategori.removeAllItems();
+    cmbFilterKategori.addItem("Semua Kategori");
+
+    try {
+        List<Map<String, Object>> listKategori = barangDAO.getAllKategori();
+        if (listKategori != null) { // Proteksi jika data null
+            for (Map<String, Object> kategori : listKategori) {
+                cmbFilterKategori.addItem(kategori.get("nama").toString());
+            }
+        }
+    } catch (Exception e) {
+        System.out.println("Error saat memuat filter kategori: " + e.getMessage());
+        e.printStackTrace();
+    }
+}
+
+    private void loadDataSearch() {
+    DefaultTableModel model = new DefaultTableModel();
+    model.addColumn("No");
+    model.addColumn("Kode");
+    model.addColumn("Nama Barang");
+    model.addColumn("Kategori");
+    model.addColumn("Stok");
+    model.addColumn("Minimum");
+
+    try {
+        String searchNama = txtSearchNama.getText().trim().toLowerCase();
+        String filterKategori = cmbFilterKategori.getSelectedItem() != null ? 
+                                 cmbFilterKategori.getSelectedItem().toString() : "Semua Kategori";
+
+        List<Barang> list = barangDAO.getAllBarang();
+        if (list != null) {
+            int no = 1;
+            for (Barang barang : list) {
+                boolean cocokNama = searchNama.isEmpty() || searchNama.equals("jtextfield3") || 
+                                    barang.getNamaBarang().toLowerCase().contains(searchNama);
+                
+                boolean cocokKategori = filterKategori.equals("Semua Kategori") || 
+                                        barang.getNamaKategori().equalsIgnoreCase(filterKategori);
+
+                if (cocokNama && cocokKategori) {
+                    model.addRow(new Object[]{
+                        no++,
+                        barang.getKodeBarang(),
+                        barang.getNamaBarang(),
+                        barang.getNamaKategori(),
+                        barang.getStok(),
+                        barang.getStokMinimum()
+                    });
+                }
+            }
+        }
+    } catch (Exception e) {
+        System.out.println("Error saat melakukan pencarian: " + e.getMessage());
+        e.printStackTrace();
+    }
+
+    tblBarang.setModel(model);
+}
+    
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(MainFrame.class.getName());
 
@@ -384,7 +445,6 @@ public class MainFrame extends javax.swing.JFrame {
      */
     public MainFrame() {
         initComponents();
-
         setupTanggalMasukSpinner();
         setupTanggalKeluarSpinner();
 
@@ -395,6 +455,8 @@ public class MainFrame extends javax.swing.JFrame {
         loadKategoriDropdown();
         loadDataBarang();
         loadDashboard();
+        loadFilterKategori();
+        loadDataSearch();
     }
 
     /**
@@ -515,12 +577,12 @@ public class MainFrame extends javax.swing.JFrame {
         jLabel48 = new javax.swing.JLabel();
         FilterKategori = new javax.swing.JLabel();
         jLabel50 = new javax.swing.JLabel();
-        jTextField12 = new javax.swing.JTextField();
-        ResetFilter = new javax.swing.JButton();
+        txtSearchNama = new javax.swing.JTextField();
+        btnResetFilter = new javax.swing.JButton();
         jScrollPane6 = new javax.swing.JScrollPane();
-        jTable6 = new javax.swing.JTable();
-        Search = new javax.swing.JButton();
-        jComboBox4 = new javax.swing.JComboBox<>();
+        tblBarang = new javax.swing.JTable();
+        btnSearch = new javax.swing.JButton();
+        cmbFilterKategori = new javax.swing.JComboBox<>();
 
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -946,7 +1008,7 @@ public class MainFrame extends javax.swing.JFrame {
         jScrollPane4.setViewportView(tblRiwayatStokMasuk);
 
         jLabel34.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel34.setText("Riwayat StokMasuk");
+        jLabel34.setText("Riwayat Stok Masuk");
 
         spnTanggalMasuk.setModel(new javax.swing.SpinnerDateModel());
 
@@ -1187,6 +1249,11 @@ public class MainFrame extends javax.swing.JFrame {
         jLabel46.setText("SEARCH & FILTER");
 
         SearchNamaBarang.setText("Search Nama Barang");
+        SearchNamaBarang.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                SearchNamaBarangMouseClicked(evt);
+            }
+        });
 
         jLabel48.setText(":");
 
@@ -1194,13 +1261,17 @@ public class MainFrame extends javax.swing.JFrame {
 
         jLabel50.setText(":");
 
-        jTextField12.setText("jTextField3");
-        jTextField12.addActionListener(this::jTextField12ActionPerformed);
+        txtSearchNama.addActionListener(this::txtSearchNamaActionPerformed);
+        txtSearchNama.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                txtSearchNamaKeyReleased(evt);
+            }
+        });
 
-        ResetFilter.setText("Reset Filter");
-        ResetFilter.addActionListener(this::ResetFilterActionPerformed);
+        btnResetFilter.setText("Reset Filter");
+        btnResetFilter.addActionListener(this::btnResetFilterActionPerformed);
 
-        jTable6.setModel(new javax.swing.table.DefaultTableModel(
+        tblBarang.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null, null, null},
                 {null, null, null, null, null, null},
@@ -1211,11 +1282,13 @@ public class MainFrame extends javax.swing.JFrame {
                 "No", "Kode", "Nama Barang", "Kategori", "Stok", "Minimum"
             }
         ));
-        jScrollPane6.setViewportView(jTable6);
+        jScrollPane6.setViewportView(tblBarang);
 
-        Search.setText("Search");
+        btnSearch.setText("Search");
+        btnSearch.addActionListener(this::btnSearchActionPerformed);
 
-        jComboBox4.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cmbFilterKategori.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cmbFilterKategori.addActionListener(this::cmbFilterKategoriActionPerformed);
 
         javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
         jPanel7.setLayout(jPanel7Layout);
@@ -1235,12 +1308,12 @@ public class MainFrame extends javax.swing.JFrame {
                         .addGap(18, 18, 18)
                         .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(jPanel7Layout.createSequentialGroup()
-                                .addComponent(jTextField12, javax.swing.GroupLayout.PREFERRED_SIZE, 71, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(txtSearchNama, javax.swing.GroupLayout.PREFERRED_SIZE, 71, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(37, 37, 37)
-                                .addComponent(Search))
-                            .addComponent(jComboBox4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addComponent(btnSearch))
+                            .addComponent(cmbFilterKategori, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addComponent(jLabel46)
-                    .addComponent(ResetFilter)
+                    .addComponent(btnResetFilter)
                     .addComponent(jScrollPane6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
@@ -1253,15 +1326,15 @@ public class MainFrame extends javax.swing.JFrame {
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(SearchNamaBarang)
                     .addComponent(jLabel48)
-                    .addComponent(jTextField12, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(Search))
+                    .addComponent(txtSearchNama, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnSearch))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(FilterKategori)
                     .addComponent(jLabel50)
-                    .addComponent(jComboBox4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(cmbFilterKategori, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addComponent(ResetFilter)
+                .addComponent(btnResetFilter)
                 .addGap(54, 54, 54)
                 .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 252, Short.MAX_VALUE)
                 .addContainerGap())
@@ -1319,13 +1392,15 @@ public class MainFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_jTextField11ActionPerformed
 
-    private void ResetFilterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ResetFilterActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_ResetFilterActionPerformed
+    private void btnResetFilterActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnResetFilterActionPerformed
+    txtSearchNama.setText("");
+    cmbFilterKategori.setSelectedIndex(0);
+    loadDataSearch();
+    }//GEN-LAST:event_btnResetFilterActionPerformed
 
-    private void jTextField12ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField12ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jTextField12ActionPerformed
+    private void txtSearchNamaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchNamaActionPerformed
+    loadDataSearch();
+    }//GEN-LAST:event_txtSearchNamaActionPerformed
 
     private void jButton10ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton10ActionPerformed
         String keyword = jTextField8.getText();
@@ -1602,6 +1677,22 @@ public class MainFrame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_jTable3MouseClicked
 
+    private void SearchNamaBarangMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_SearchNamaBarangMouseClicked
+        // TODO add your handling code here:
+    }//GEN-LAST:event_SearchNamaBarangMouseClicked
+
+    private void cmbFilterKategoriActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cmbFilterKategoriActionPerformed
+    loadDataSearch();
+    }//GEN-LAST:event_cmbFilterKategoriActionPerformed
+
+    private void btnSearchActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchActionPerformed
+    loadDataSearch();
+    }//GEN-LAST:event_btnSearchActionPerformed
+
+    private void txtSearchNamaKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_txtSearchNamaKeyReleased
+    loadDataSearch();
+    }//GEN-LAST:event_txtSearchNamaKeyReleased
+
     /**
      * @param args the command line arguments
      */
@@ -1629,12 +1720,13 @@ public class MainFrame extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel FilterKategori;
-    private javax.swing.JButton ResetFilter;
-    private javax.swing.JButton Search;
     private javax.swing.JLabel SearchNamaBarang;
     private javax.swing.JButton btnCariStokKritis;
+    private javax.swing.JButton btnResetFilter;
+    private javax.swing.JButton btnSearch;
     private javax.swing.JButton btnSimpanStokMasuk;
     private javax.swing.JComboBox<String> cmbBarangMasuk;
+    private javax.swing.JComboBox<String> cmbFilterKategori;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton10;
     private javax.swing.JButton jButton2;
@@ -1646,7 +1738,6 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JButton jButton8;
     private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JComboBox<String> jComboBox3;
-    private javax.swing.JComboBox<String> jComboBox4;
     private javax.swing.JDesktopPane jDesktopPane1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
@@ -1718,11 +1809,9 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JTable jTable3;
     private javax.swing.JTable jTable4;
     private javax.swing.JTable jTable5;
-    private javax.swing.JTable jTable6;
     private javax.swing.JTextField jTextField1;
     private javax.swing.JTextField jTextField10;
     private javax.swing.JTextField jTextField11;
-    private javax.swing.JTextField jTextField12;
     private javax.swing.JTextField jTextField2;
     private javax.swing.JTextField jTextField3;
     private javax.swing.JTextField jTextField4;
@@ -1738,10 +1827,12 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblTotalStokKritis;
     private javax.swing.JLabel lblTotalStokMasuk;
     private javax.swing.JSpinner spnTanggalMasuk;
+    private javax.swing.JTable tblBarang;
     private javax.swing.JTable tblRiwayatStokMasuk;
     private javax.swing.JTable tblStokKritis;
     private javax.swing.JTextField txtCariStokKritis;
     private javax.swing.JTextField txtJumlahMasuk;
+    private javax.swing.JTextField txtSearchNama;
     private javax.swing.JTextField txtSupplierMasuk;
     // End of variables declaration//GEN-END:variables
 }
