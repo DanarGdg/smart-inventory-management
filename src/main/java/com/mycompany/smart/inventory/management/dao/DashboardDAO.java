@@ -9,7 +9,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -17,92 +19,90 @@ import java.util.List;
  */
 public class DashboardDAO {
 
+    private int getSingleInt(String sql) {
+        try (
+                Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+
+        } catch (Exception e) {
+            System.out.println("Gagal mengambil data dashboard: " + e.getMessage());
+        }
+
+        return 0;
+    }
+
     public int getTotalBarang() {
-        return getCount("SELECT COUNT(*) FROM barang");
+        String sql = "SELECT COUNT(*) FROM barang";
+        return getSingleInt(sql);
     }
 
     public int getTotalKategori() {
-        return getCount("SELECT COUNT(*) FROM kategori");
+        String sql = "SELECT COUNT(*) FROM kategori";
+        return getSingleInt(sql);
     }
 
     public int getTotalStokKritis() {
-        return getCount("SELECT COUNT(*) FROM barang WHERE stok <= stok_minimum");
+        String sql = "SELECT COUNT(*) FROM barang WHERE stok <= stok_minimum";
+        return getSingleInt(sql);
     }
 
     public int getTotalStokMasuk() {
-        return getSum("SELECT COALESCE(SUM(jumlah_masuk), 0) FROM stok_masuk");
+        String sql = "SELECT COALESCE(SUM(jumlah_masuk), 0) FROM stok_masuk";
+        return getSingleInt(sql);
     }
 
     public int getTotalStokKeluar() {
-        return getSum("SELECT COALESCE(SUM(jumlah_keluar), 0) FROM stok_keluar");
+        String sql = "SELECT COALESCE(SUM(jumlah_keluar), 0) FROM stok_keluar";
+        return getSingleInt(sql);
     }
 
-    private int getCount(String sql) {
-        try {
-            Connection conn = DBConfig.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ResultSet rs = ps.executeQuery();
+    public Map<String, Integer> getJumlahBarangPerKategori() {
+        Map<String, Integer> data = new LinkedHashMap<>();
 
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
+        String sql = "SELECT k.nama_kategori, COUNT(b.kode_barang) AS total "
+                + "FROM kategori k "
+                + "LEFT JOIN barang b ON k.id_kategori = b.id_kategori "
+                + "GROUP BY k.id_kategori, k.nama_kategori "
+                + "ORDER BY k.nama_kategori";
 
-        } catch (Exception e) {
-            System.out.println("Gagal mengambil data count: " + e.getMessage());
-        }
-
-        return 0;
-    }
-
-    private int getSum(String sql) {
-        try {
-            Connection conn = DBConfig.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-
-        } catch (Exception e) {
-            System.out.println("Gagal mengambil data sum: " + e.getMessage());
-        }
-
-        return 0;
-    }
-
-    public List<Object[]> getBarangStokKritis() {
-        List<Object[]> list = new ArrayList<>();
-
-        String sql = "SELECT b.kode_barang, b.nama_barang, k.nama_kategori, "
-                + "b.stok, b.stok_minimum "
-                + "FROM barang b "
-                + "JOIN kategori k ON b.id_kategori = k.id_kategori "
-                + "WHERE b.stok <= b.stok_minimum";
-
-        try {
-            Connection conn = DBConfig.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ResultSet rs = ps.executeQuery();
-
+        try (
+                Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                Object[] row = {
-                    rs.getString("kode_barang"),
-                    rs.getString("nama_barang"),
-                    rs.getString("nama_kategori"),
-                    rs.getInt("stok"),
-                    rs.getInt("stok_minimum"),
-                    "KRITIS"
-                };
-
-                list.add(row);
+                data.put(
+                        rs.getString("nama_kategori"),
+                        rs.getInt("total")
+                );
             }
 
         } catch (Exception e) {
-            System.out.println("Gagal mengambil stok kritis: " + e.getMessage());
+            System.out.println("Gagal mengambil chart kategori: " + e.getMessage());
         }
 
-        return list;
+        return data;
+    }
+
+    public Map<String, Integer> getStatusStokBarang() {
+        Map<String, Integer> data = new LinkedHashMap<>();
+
+        String sql = "SELECT "
+                + "SUM(CASE WHEN stok > stok_minimum THEN 1 ELSE 0 END) AS stok_aman, "
+                + "SUM(CASE WHEN stok <= stok_minimum THEN 1 ELSE 0 END) AS stok_kritis "
+                + "FROM barang";
+
+        try (
+                Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                data.put("Stok Aman", rs.getInt("stok_aman"));
+                data.put("Stok Kritis", rs.getInt("stok_kritis"));
+            }
+
+        } catch (Exception e) {
+            System.out.println("Gagal mengambil status stok: " + e.getMessage());
+        }
+
+        return data;
     }
 
     public List<Object[]> cariBarangStokKritis(String keyword) {
@@ -113,29 +113,33 @@ public class DashboardDAO {
                 + "FROM barang b "
                 + "JOIN kategori k ON b.id_kategori = k.id_kategori "
                 + "WHERE b.stok <= b.stok_minimum "
-                + "AND b.nama_barang LIKE ?";
+                + "AND (b.kode_barang LIKE ? "
+                + "OR b.nama_barang LIKE ? "
+                + "OR k.nama_kategori LIKE ?) "
+                + "ORDER BY b.stok ASC";
 
-        try {
-            Connection conn = DBConfig.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ps.setString(1, "%" + keyword + "%");
+        try (
+                Connection conn = DBConfig.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            String search = "%" + keyword + "%";
 
-            ResultSet rs = ps.executeQuery();
+            ps.setString(1, search);
+            ps.setString(2, search);
+            ps.setString(3, search);
 
-            while (rs.next()) {
-                Object[] row = {
-                    rs.getString("kode_barang"),
-                    rs.getString("nama_barang"),
-                    rs.getString("nama_kategori"),
-                    rs.getInt("stok"),
-                    rs.getInt("stok_minimum")
-                };
-
-                list.add(row);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new Object[]{
+                        rs.getString("kode_barang"),
+                        rs.getString("nama_barang"),
+                        rs.getString("nama_kategori"),
+                        rs.getInt("stok"),
+                        rs.getInt("stok_minimum")
+                    });
+                }
             }
 
         } catch (Exception e) {
-            System.out.println("Gagal mencari stok kritis: " + e.getMessage());
+            System.out.println("Gagal mengambil barang stok kritis: " + e.getMessage());
         }
 
         return list;

@@ -5,6 +5,8 @@
 package com.mycompany.smart.inventory.management.service;
 
 import com.mycompany.smart.inventory.management.dao.StokMasukDAO;
+import com.mycompany.smart.inventory.management.model.StokMasuk;
+import java.util.List;
 
 /**
  *
@@ -54,6 +56,26 @@ public class StokMasukService {
                 supplier,
                 jumlahMasuk,
                 tanggalMasuk
+        );
+    }
+
+    public List<StokMasuk> getRiwayatStokMasuk() {
+        return stokMasukDAO.getRiwayatStokMasuk();
+    }
+
+    public List<StokMasuk> searchRiwayatStokMasuk(
+            String keyword,
+            String tanggalDari,
+            String tanggalSampai
+    ) {
+        if (keyword == null) {
+            keyword = "";
+        }
+
+        return stokMasukDAO.searchRiwayatStokMasuk(
+                keyword.trim(),
+                tanggalDari,
+                tanggalSampai
         );
     }
 }

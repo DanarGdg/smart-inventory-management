@@ -133,4 +133,55 @@ public class StokMasukDAO {
 
         return list;
     }
+
+    public List<StokMasuk> searchRiwayatStokMasuk(
+            String keyword,
+            String tanggalDari,
+            String tanggalSampai
+    ) {
+        List<StokMasuk> list = new ArrayList<>();
+
+        String sql = "SELECT sm.id_masuk, sm.kode_barang, b.nama_barang, "
+                + "sm.supplier, sm.jumlah_masuk, sm.tanggal_masuk "
+                + "FROM stok_masuk sm "
+                + "JOIN barang b ON sm.kode_barang = b.kode_barang "
+                + "WHERE (b.nama_barang LIKE ? "
+                + "OR sm.kode_barang LIKE ? "
+                + "OR sm.supplier LIKE ?) "
+                + "AND sm.tanggal_masuk BETWEEN ? AND ? "
+                + "ORDER BY sm.id_masuk DESC";
+
+        try {
+            Connection conn = DBConfig.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            String searchKeyword = "%" + keyword + "%";
+
+            ps.setString(1, searchKeyword);
+            ps.setString(2, searchKeyword);
+            ps.setString(3, searchKeyword);
+            ps.setString(4, tanggalDari);
+            ps.setString(5, tanggalSampai);
+
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                StokMasuk stokMasuk = new StokMasuk(
+                        rs.getInt("id_masuk"),
+                        rs.getString("kode_barang"),
+                        rs.getString("nama_barang"),
+                        rs.getString("supplier"),
+                        rs.getInt("jumlah_masuk"),
+                        rs.getDate("tanggal_masuk")
+                );
+
+                list.add(stokMasuk);
+            }
+
+        } catch (Exception e) {
+            System.out.println("Gagal mencari riwayat stok masuk: " + e.getMessage());
+        }
+
+        return list;
+    }
 }

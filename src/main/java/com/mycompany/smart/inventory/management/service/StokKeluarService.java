@@ -1,6 +1,8 @@
 package com.mycompany.smart.inventory.management.service;
 
 import com.mycompany.smart.inventory.management.dao.StokKeluarDAO;
+import com.mycompany.smart.inventory.management.model.StokKeluar;
+import java.util.List;
 
 /**
  * Service untuk stok keluar.
@@ -55,5 +57,17 @@ public class StokKeluarService {
         }
 
         return true;
+    }
+
+    public List<StokKeluar> getRiwayatStokKeluar() {
+        return stokKeluarDAO.getRiwayatStokKeluar();
+    }
+
+    public List<StokKeluar> searchRiwayatStokKeluar(String keyword) {
+        if (keyword == null) {
+            keyword = "";
+        }
+
+        return stokKeluarDAO.searchRiwayatStokKeluar(keyword.trim());
     }
 }

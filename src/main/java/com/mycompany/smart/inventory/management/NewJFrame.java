@@ -6,13 +6,14 @@ package com.mycompany.smart.inventory.management;
 
 import com.formdev.flatlaf.FlatLightLaf;
 import com.mycompany.smart.inventory.management.UI.AppColors;
+import com.mycompany.smart.inventory.management.service.DashboardService;
 import java.awt.CardLayout;
 import java.awt.Color;
 import javax.swing.JButton;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
+import java.awt.Component;
 import java.awt.Font;
-import javax.swing.BorderFactory;
+import java.util.Map;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import org.jfree.chart.ChartFactory;
@@ -23,9 +24,43 @@ import org.jfree.data.general.DefaultPieDataset;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PiePlot;
 import org.jfree.chart.renderer.category.BarRenderer;
+import java.util.List;
+import com.mycompany.smart.inventory.management.dao.BarangDAO;
+import com.mycompany.smart.inventory.management.model.Barang;
+import com.mycompany.smart.inventory.management.model.StokMasuk;
+import com.mycompany.smart.inventory.management.service.StokMasukService;
+import java.awt.Dimension;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JFileChooser;
+import javax.swing.JFormattedTextField;
+import javax.swing.JSpinner;
+import javax.swing.JTextField;
+import javax.swing.SpinnerDateModel;
+import javax.swing.table.DefaultTableModel;
+
+import org.openpdf.text.Document;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfWriter;
+import com.mycompany.smart.inventory.management.model.StokKeluar;
+import com.mycompany.smart.inventory.management.service.StokKeluarService;
 
 /**
  *
@@ -36,12 +71,65 @@ public class NewJFrame extends javax.swing.JFrame {
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(NewJFrame.class.getName());
     private CardLayout cardLayout;
 
+    private DashboardService dashboardService = new DashboardService();
+
+    private BarangDAO barangDAO = new BarangDAO();
+    private StokMasukService stokMasukService = new StokMasukService();
+    private StokKeluarService stokKeluarService = new StokKeluarService();
+
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+    private void loadDashboardData() {
+        try {
+            lblValueTotalBarang.setText(String.valueOf(
+                    dashboardService.getTotalBarang()
+            ));
+
+            lblValueKategori.setText(String.valueOf(
+                    dashboardService.getTotalKategori()
+            ));
+
+            lblValueStokMasuk.setText(String.valueOf(
+                    dashboardService.getTotalStokMasuk()
+            ));
+
+            lblValueStokKeluar.setText(String.valueOf(
+                    dashboardService.getTotalStokKeluar()
+            ));
+
+            lblValueStokKritis.setText(String.valueOf(
+                    dashboardService.getTotalStokKritis()
+            ));
+
+            loadChartKategori();
+            loadChartStatusStok();
+            loadTableStokKritis("");
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal memuat dashboard: " + e.getMessage()
+            );
+        }
+    }
+
     private void loadChartKategori() {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
-        dataset.addValue(2, "Barang", "Elektronik");
-        dataset.addValue(1, "Barang", "ATK");
-        dataset.addValue(1, "Barang", "Furniture");
+        Map<String, Integer> dataKategori
+                = dashboardService.getJumlahBarangPerKategori();
+
+        if (dataKategori.isEmpty()) {
+            dataset.addValue(0, "Barang", "Belum Ada Data");
+        } else {
+            for (Map.Entry<String, Integer> entry : dataKategori.entrySet()) {
+                dataset.addValue(
+                        entry.getValue(),
+                        "Barang",
+                        entry.getKey()
+                );
+            }
+        }
 
         JFreeChart chart = ChartFactory.createBarChart(
                 "Jumlah Barang per Kategori",
@@ -69,7 +157,9 @@ public class NewJFrame extends javax.swing.JFrame {
         panelChartKategori.removeAll();
         panelChartKategori.setLayout(new BorderLayout());
         panelChartKategori.setBackground(Color.WHITE);
-        panelChartKategori.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        panelChartKategori.setBorder(
+                BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        );
         panelChartKategori.add(chartPanel, BorderLayout.CENTER);
         panelChartKategori.revalidate();
         panelChartKategori.repaint();
@@ -78,8 +168,14 @@ public class NewJFrame extends javax.swing.JFrame {
     private void loadChartStatusStok() {
         DefaultPieDataset dataset = new DefaultPieDataset();
 
-        dataset.setValue("Stok Aman", 3);
-        dataset.setValue("Stok Kritis", 1);
+        Map<String, Integer> dataStatus
+                = dashboardService.getStatusStokBarang();
+
+        int stokAman = dataStatus.getOrDefault("Stok Aman", 0);
+        int stokKritis = dataStatus.getOrDefault("Stok Kritis", 0);
+
+        dataset.setValue("Stok Aman", stokAman);
+        dataset.setValue("Stok Kritis", stokKritis);
 
         JFreeChart chart = ChartFactory.createPieChart(
                 "Status Stok Barang",
@@ -106,10 +202,137 @@ public class NewJFrame extends javax.swing.JFrame {
         panelChartStatusStok.removeAll();
         panelChartStatusStok.setLayout(new BorderLayout());
         panelChartStatusStok.setBackground(Color.WHITE);
-        panelChartStatusStok.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        panelChartStatusStok.setBorder(
+                BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        );
         panelChartStatusStok.add(chartPanel, BorderLayout.CENTER);
         panelChartStatusStok.revalidate();
         panelChartStatusStok.repaint();
+    }
+
+    private void loadTableStokKritis(String keyword) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Kode");
+        model.addColumn("Nama Barang");
+        model.addColumn("Kategori");
+        model.addColumn("Stok");
+        model.addColumn("Minimum");
+        model.addColumn("Status");
+
+        List<Object[]> list
+                = dashboardService.cariBarangStokKritis(keyword);
+
+        int no = 1;
+
+        for (Object[] data : list) {
+            model.addRow(new Object[]{
+                no++,
+                data[0], // kode_barang
+                data[1], // nama_barang
+                data[2], // nama_kategori
+                data[3], // stok
+                data[4], // stok_minimum
+                "KRITIS"
+            });
+        }
+
+        jTable1.setModel(model);
+        setTableStokKritisColor();
+    }
+
+    private void setTableStokKritisColor() {
+        jTable1.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+
+            @Override
+            public Component getTableCellRendererComponent(
+                    JTable table,
+                    Object value,
+                    boolean isSelected,
+                    boolean hasFocus,
+                    int row,
+                    int column
+            ) {
+                Component component = super.getTableCellRendererComponent(
+                        table,
+                        value,
+                        isSelected,
+                        hasFocus,
+                        row,
+                        column
+                );
+
+                if (isSelected) {
+                    component.setBackground(new Color(220, 252, 231));
+                    component.setForeground(AppColors.TEXT_PRIMARY);
+                    return component;
+                }
+
+                component.setBackground(new Color(254, 226, 226));
+                component.setForeground(new Color(127, 29, 29));
+
+                return component;
+            }
+        });
+    }
+
+    private void setupDashboardSearch() {
+        jTextField1.addActionListener(e -> {
+            loadTableStokKritis(jTextField1.getText());
+        });
+    }
+
+    private void btnCariStokKritisActionPerformed(java.awt.event.ActionEvent evt) {
+        loadTableStokKritis(jTextField1.getText());
+    }
+
+    private void setupDateSpinner(JSpinner spinner) {
+        spinner.setModel(new SpinnerDateModel());
+        spinner.setEditor(new JSpinner.DateEditor(spinner, "yyyy-MM-dd"));
+        spinner.setValue(new Date());
+
+        spinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        spinner.setPreferredSize(new Dimension(150, 36));
+        spinner.setMinimumSize(new Dimension(150, 36));
+
+        spinner.putClientProperty("JComponent.roundRect", true);
+
+        JComponent editor = spinner.getEditor();
+
+        if (editor instanceof JSpinner.DefaultEditor) {
+            JFormattedTextField textField
+                    = ((JSpinner.DefaultEditor) editor).getTextField();
+
+            textField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            textField.setBackground(Color.WHITE);
+            textField.setForeground(AppColors.TEXT_PRIMARY);
+
+            textField.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        }
+    }
+
+    private void setupStokMasukComponents() {
+        setupDateSpinner(spnTanggalMasuk);
+        setupDateSpinner(spnDariTanggalMasuk);
+        setupDateSpinner(spnSampaiTanggalMasuk);
+
+        cmbBarangMasuk.putClientProperty("JComponent.roundRect", true);
+        txtSupplierMasuk.putClientProperty("JComponent.roundRect", true);
+        txtJumlahMasuk.putClientProperty("JComponent.roundRect", true);
+        txtSearchStokMasuk.putClientProperty("JComponent.roundRect", true);
+
+        stylePrimaryButton(btnSimpanStokMasuk);
+        styleSecondaryButton(btnClearStokMasuk);
+        styleSecondaryButton(btnCariStokMasuk);
+        styleSecondaryButton(btnExportPdfStokMasuk);
+
+        btnSimpanStokMasuk.addActionListener(e -> simpanStokMasuk());
+        btnClearStokMasuk.addActionListener(e -> clearFormStokMasuk());
+        btnCariStokMasuk.addActionListener(e -> cariRiwayatStokMasuk());
+        btnExportPdfStokMasuk.addActionListener(e -> exportStokMasukPdf());
+
+        txtSearchStokMasuk.addActionListener(e -> cariRiwayatStokMasuk());
     }
 
     private void showPage(String pageName) {
@@ -265,8 +488,8 @@ public class NewJFrame extends javax.swing.JFrame {
     private void setupModernTables() {
         styleTable(jTable1);
         styleTable(jTable2);
-        styleTable(jTable3);
-        styleTable(jTable4);
+        styleTable(tblRiwayatStokMasuk);
+        styleTable(tblRiwayatStokKeluar);
     }
 
     private void styleTable(javax.swing.JTable table) {
@@ -318,32 +541,561 @@ public class NewJFrame extends javax.swing.JFrame {
         button.setFont(new Font("Segoe UI", Font.BOLD, 13));
         button.setFocusPainted(false);
         button.setBorderPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(9, 18, 9, 18));
+
+        button.setPreferredSize(new Dimension(90, 36));
+        button.setMinimumSize(new Dimension(90, 36));
+
+        button.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+        button.putClientProperty("JButton.buttonType", "roundRect");
     }
 
     private void styleSecondaryButton(JButton button) {
-        button.setBackground(new Color(243, 244, 246));
+        button.setBackground(Color.WHITE);
         button.setForeground(AppColors.TEXT_PRIMARY);
         button.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         button.setFocusPainted(false);
         button.setBorderPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(9, 18, 9, 18));
+
+        button.setPreferredSize(new Dimension(90, 36));
+        button.setMinimumSize(new Dimension(90, 36));
+
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(AppColors.BORDER),
+                BorderFactory.createEmptyBorder(8, 16, 8, 16)
+        ));
+
+        button.putClientProperty("JButton.buttonType", "roundRect");
     }
 
     private void setupModernButtons() {
-        stylePrimaryButton(jButton1);  // Tambah
-        styleSecondaryButton(jButton2); // Update
-        styleSecondaryButton(jButton3); // Hapus
-        styleSecondaryButton(jButton4); // Clear
+        stylePrimaryButton(jButton1);
+        styleSecondaryButton(jButton2);
+        styleSecondaryButton(jButton3);
+        styleSecondaryButton(jButton4);
 
-        stylePrimaryButton(jButton5);  // Simpan stok masuk
-        styleSecondaryButton(jButton6); // Clear stok masuk
+        stylePrimaryButton(btnSimpanStokMasuk);
+        styleSecondaryButton(btnClearStokMasuk);
+        styleSecondaryButton(btnCariStokMasuk);
+        styleSecondaryButton(btnExportPdfStokMasuk);
 
-        stylePrimaryButton(jButton10); // Simpan stok keluar
-        styleSecondaryButton(jButton9); // Clear stok keluar
+        stylePrimaryButton(btnSimpanStokKeluar);
+        styleSecondaryButton(btnClearStokKeluar);
+        styleSecondaryButton(btnCariStokKeluar);
+        styleSecondaryButton(btnExportPdfStokKeluar);
+    }
 
-        styleSecondaryButton(jButton7);  // Cetak PDF masuk
-        styleSecondaryButton(jButton11); // Cetak PDF keluar
+    private void loadComboBarangMasuk() {
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+
+        try {
+            List<Barang> listBarang = barangDAO.getAllBarang();
+
+            for (Barang barang : listBarang) {
+                model.addElement(
+                        barang.getKodeBarang() + " - " + barang.getNamaBarang()
+                );
+            }
+
+            cmbBarangMasuk.setModel(model);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal load barang: " + e.getMessage()
+            );
+        }
+    }
+
+    private String getKodeBarangMasukDipilih() {
+        Object selected = cmbBarangMasuk.getSelectedItem();
+
+        if (selected == null) {
+            return null;
+        }
+
+        String item = selected.toString();
+
+        if (!item.contains(" - ")) {
+            return null;
+        }
+
+        return item.split(" - ")[0];
+    }
+
+    private void loadRiwayatStokMasuk() {
+        List<StokMasuk> list = stokMasukService.getRiwayatStokMasuk();
+        tampilkanRiwayatStokMasuk(list);
+    }
+
+    private void tampilkanRiwayatStokMasuk(List<StokMasuk> list) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Tanggal");
+        model.addColumn("Kode");
+        model.addColumn("Nama Barang");
+        model.addColumn("Jumlah");
+        model.addColumn("Supplier");
+
+        int no = 1;
+
+        for (StokMasuk sm : list) {
+            model.addRow(new Object[]{
+                no++,
+                sm.getTanggalMasuk(),
+                sm.getKodeBarang(),
+                sm.getNamaBarang(),
+                sm.getJumlahMasuk(),
+                sm.getSupplier()
+            });
+        }
+
+        tblRiwayatStokMasuk.setModel(model);
+        styleTable(tblRiwayatStokMasuk);
+    }
+
+    private void simpanStokMasuk() {
+        try {
+            String kodeBarang = getKodeBarangMasukDipilih();
+            String supplier = txtSupplierMasuk.getText();
+            String jumlahMasuk = txtJumlahMasuk.getText();
+
+            Date tanggal = (Date) spnTanggalMasuk.getValue();
+            String tanggalMasuk = dateFormat.format(tanggal);
+
+            boolean berhasil = stokMasukService.simpanStokMasuk(
+                    kodeBarang,
+                    supplier,
+                    jumlahMasuk,
+                    tanggalMasuk
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Stok masuk berhasil disimpan"
+                );
+
+                clearFormStokMasuk();
+                loadRiwayatStokMasuk();
+                loadDashboardData();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    e.getMessage()
+            );
+        }
+    }
+
+    private void clearFormStokMasuk() {
+        if (cmbBarangMasuk.getItemCount() > 0) {
+            cmbBarangMasuk.setSelectedIndex(0);
+        }
+
+        txtSupplierMasuk.setText("");
+        txtJumlahMasuk.setText("");
+        spnTanggalMasuk.setValue(new Date());
+
+        txtSupplierMasuk.requestFocus();
+    }
+
+    private void cariRiwayatStokMasuk() {
+        try {
+            String keyword = txtSearchStokMasuk.getText();
+
+            Date dari = (Date) spnDariTanggalMasuk.getValue();
+            Date sampai = (Date) spnSampaiTanggalMasuk.getValue();
+
+            if (dari.after(sampai)) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Tanggal dari tidak boleh lebih besar dari tanggal sampai"
+                );
+                return;
+            }
+
+            String tanggalDari = dateFormat.format(dari);
+            String tanggalSampai = dateFormat.format(sampai);
+
+            List<StokMasuk> list = stokMasukService.searchRiwayatStokMasuk(
+                    keyword,
+                    tanggalDari,
+                    tanggalSampai
+            );
+
+            tampilkanRiwayatStokMasuk(list);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal mencari riwayat stok masuk: " + e.getMessage()
+            );
+        }
+    }
+
+    private void exportStokMasukPdf() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Simpan Laporan Stok Masuk");
+        chooser.setSelectedFile(new File("laporan_stok_masuk.pdf"));
+
+        int result = chooser.showSaveDialog(this);
+
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File file = chooser.getSelectedFile();
+
+        if (!file.getName().toLowerCase().endsWith(".pdf")) {
+            file = new File(file.getAbsolutePath() + ".pdf");
+        }
+
+        try {
+            Document document = new Document(PageSize.A4.rotate());
+
+            PdfWriter.getInstance(
+                    document,
+                    new FileOutputStream(file)
+            );
+
+            document.open();
+
+            org.openpdf.text.Font titleFont
+                    = org.openpdf.text.FontFactory.getFont(
+                            org.openpdf.text.FontFactory.HELVETICA_BOLD,
+                            16
+                    );
+
+            document.add(new Paragraph("Laporan Stok Masuk", titleFont));
+            document.add(new Paragraph("Tanggal Cetak: " + dateFormat.format(new Date())));
+            document.add(new Paragraph(" "));
+
+            PdfPTable pdfTable = new PdfPTable(tblRiwayatStokMasuk.getColumnCount());
+            pdfTable.setWidthPercentage(100);
+
+            for (int i = 0; i < tblRiwayatStokMasuk.getColumnCount(); i++) {
+                pdfTable.addCell(new Phrase(
+                        tblRiwayatStokMasuk.getColumnName(i)
+                ));
+            }
+
+            for (int row = 0; row < tblRiwayatStokMasuk.getRowCount(); row++) {
+                for (int col = 0; col < tblRiwayatStokMasuk.getColumnCount(); col++) {
+                    Object value = tblRiwayatStokMasuk.getValueAt(row, col);
+
+                    pdfTable.addCell(
+                            value == null ? "" : value.toString()
+                    );
+                }
+            }
+
+            document.add(pdfTable);
+            document.close();
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "PDF berhasil dibuat:\n" + file.getAbsolutePath()
+            );
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal export PDF: " + e.getMessage()
+            );
+        }
+    }
+
+    private void styleTextField(JTextField textField) {
+        textField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        textField.setBackground(Color.WHITE);
+        textField.setForeground(AppColors.TEXT_PRIMARY);
+
+        textField.setPreferredSize(new Dimension(150, 36));
+        textField.setMinimumSize(new Dimension(150, 36));
+
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(AppColors.BORDER),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)
+        ));
+
+        textField.putClientProperty("JComponent.roundRect", true);
+    }
+
+    private void setupModernInputs() {
+        // Stok Masuk
+        styleComboBox(cmbBarangMasuk);
+
+        styleTextField(txtSupplierMasuk);
+        styleTextField(txtJumlahMasuk);
+        styleTextField(txtSearchStokMasuk);
+
+        setupDateSpinner(spnTanggalMasuk);
+        setupDateSpinner(spnDariTanggalMasuk);
+        setupDateSpinner(spnSampaiTanggalMasuk);
+
+        styleSecondaryButton(btnCariStokMasuk);
+
+        // Stok Keluar
+        styleComboBox(cmbBarangKeluar);
+        styleTextField(txtTujuanKeluar);
+        styleTextField(txtJumlahKeluar);
+        styleTextField(txtSearchStokKeluar);
+
+        setupDateSpinner(spnTanggalKeluar);
+        setupDateSpinner(spnDariTanggalKeluar);
+        setupDateSpinner(spnSampaiTanggalKeluar);
+    }
+
+    private void styleComboBox(JComboBox comboBox) {
+        comboBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        comboBox.setBackground(Color.WHITE);
+        comboBox.setForeground(AppColors.TEXT_PRIMARY);
+
+        comboBox.setPreferredSize(new Dimension(150, 36));
+        comboBox.setMinimumSize(new Dimension(150, 36));
+
+        comboBox.putClientProperty("JComponent.roundRect", true);
+        comboBox.putClientProperty("JComponent.minimumWidth", 150);
+    }
+
+    private void setupStokKeluarComponents() {
+        setupDateSpinner(spnTanggalKeluar);
+        setupDateSpinner(spnDariTanggalKeluar);
+        setupDateSpinner(spnSampaiTanggalKeluar);
+
+        styleComboBox(cmbBarangKeluar);
+
+        styleTextField(txtTujuanKeluar);
+        styleTextField(txtJumlahKeluar);
+        styleTextField(txtSearchStokKeluar);
+
+        stylePrimaryButton(btnSimpanStokKeluar);
+        styleSecondaryButton(btnClearStokKeluar);
+        styleSecondaryButton(btnCariStokKeluar);
+        styleSecondaryButton(btnExportPdfStokKeluar);
+
+        btnSimpanStokKeluar.addActionListener(e -> simpanStokKeluar());
+        btnClearStokKeluar.addActionListener(e -> clearFormStokKeluar());
+        btnCariStokKeluar.addActionListener(e -> cariRiwayatStokKeluar());
+        btnExportPdfStokKeluar.addActionListener(e -> exportStokKeluarPdf());
+
+        txtSearchStokKeluar.addActionListener(e -> cariRiwayatStokKeluar());
+    }
+
+    private void loadComboBarangKeluar() {
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+
+        try {
+            List<Barang> listBarang = barangDAO.getAllBarang();
+
+            for (Barang barang : listBarang) {
+                model.addElement(
+                        barang.getKodeBarang() + " - " + barang.getNamaBarang()
+                );
+            }
+
+            cmbBarangKeluar.setModel(model);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal load barang keluar: " + e.getMessage()
+            );
+        }
+    }
+
+    private String getKodeBarangKeluarDipilih() {
+        Object selected = cmbBarangKeluar.getSelectedItem();
+
+        if (selected == null) {
+            return null;
+        }
+
+        String item = selected.toString();
+
+        if (!item.contains(" - ")) {
+            return null;
+        }
+
+        return item.split(" - ")[0];
+    }
+
+    private void loadRiwayatStokKeluar() {
+        List<StokKeluar> list = stokKeluarService.getRiwayatStokKeluar();
+        tampilkanRiwayatStokKeluar(list);
+    }
+
+    private void tampilkanRiwayatStokKeluar(List<StokKeluar> list) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("Tanggal");
+        model.addColumn("Kode");
+        model.addColumn("Nama Barang");
+        model.addColumn("Jumlah");
+        model.addColumn("Tujuan");
+
+        int no = 1;
+
+        for (StokKeluar sk : list) {
+            model.addRow(new Object[]{
+                no++,
+                sk.getTanggalKeluar(),
+                sk.getKodeBarang(),
+                sk.getNamaBarang(),
+                sk.getJumlahKeluar(),
+                sk.getDepartemenTujuan()
+            });
+        }
+
+        tblRiwayatStokKeluar.setModel(model);
+        styleTable(tblRiwayatStokKeluar);
+    }
+
+    private void simpanStokKeluar() {
+        try {
+            String kodeBarang = getKodeBarangKeluarDipilih();
+            String tujuan = txtTujuanKeluar.getText();
+            String jumlahKeluar = txtJumlahKeluar.getText();
+
+            Date tanggal = (Date) spnTanggalKeluar.getValue();
+            String tanggalKeluar = dateFormat.format(tanggal);
+
+            boolean berhasil = stokKeluarService.simpanStokKeluar(
+                    kodeBarang,
+                    tujuan,
+                    jumlahKeluar,
+                    tanggalKeluar
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Stok keluar berhasil disimpan"
+                );
+
+                clearFormStokKeluar();
+                loadRiwayatStokKeluar();
+
+                // Refresh dashboard karena stok dan total stok keluar berubah
+                loadDashboardData();
+
+                // Refresh combo barang masuk/keluar supaya stok terbaru ikut terbaca
+                loadComboBarangMasuk();
+                loadComboBarangKeluar();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    e.getMessage()
+            );
+        }
+    }
+
+    private void clearFormStokKeluar() {
+        if (cmbBarangKeluar.getItemCount() > 0) {
+            cmbBarangKeluar.setSelectedIndex(0);
+        }
+
+        txtTujuanKeluar.setText("");
+        txtJumlahKeluar.setText("");
+        spnTanggalKeluar.setValue(new Date());
+
+        txtTujuanKeluar.requestFocus();
+    }
+
+    private void cariRiwayatStokKeluar() {
+        try {
+            String keyword = txtSearchStokKeluar.getText();
+
+            List<StokKeluar> list
+                    = stokKeluarService.searchRiwayatStokKeluar(keyword);
+
+            tampilkanRiwayatStokKeluar(list);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal mencari riwayat stok keluar: " + e.getMessage()
+            );
+        }
+    }
+
+    private void exportStokKeluarPdf() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Simpan Laporan Stok Keluar");
+        chooser.setSelectedFile(new File("laporan_stok_keluar.pdf"));
+
+        int result = chooser.showSaveDialog(this);
+
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File file = chooser.getSelectedFile();
+
+        if (!file.getName().toLowerCase().endsWith(".pdf")) {
+            file = new File(file.getAbsolutePath() + ".pdf");
+        }
+
+        try {
+            Document document = new Document(PageSize.A4.rotate());
+
+            PdfWriter.getInstance(
+                    document,
+                    new FileOutputStream(file)
+            );
+
+            document.open();
+
+            org.openpdf.text.Font titleFont
+                    = org.openpdf.text.FontFactory.getFont(
+                            org.openpdf.text.FontFactory.HELVETICA_BOLD,
+                            16
+                    );
+
+            document.add(new Paragraph("Laporan Stok Keluar", titleFont));
+            document.add(new Paragraph("Tanggal Cetak: " + dateFormat.format(new Date())));
+            document.add(new Paragraph(" "));
+
+            PdfPTable pdfTable
+                    = new PdfPTable(tblRiwayatStokKeluar.getColumnCount());
+
+            pdfTable.setWidthPercentage(100);
+
+            for (int i = 0; i < tblRiwayatStokKeluar.getColumnCount(); i++) {
+                pdfTable.addCell(new Phrase(
+                        tblRiwayatStokKeluar.getColumnName(i)
+                ));
+            }
+
+            for (int row = 0; row < tblRiwayatStokKeluar.getRowCount(); row++) {
+                for (int col = 0; col < tblRiwayatStokKeluar.getColumnCount(); col++) {
+                    Object value = tblRiwayatStokKeluar.getValueAt(row, col);
+
+                    pdfTable.addCell(
+                            value == null ? "" : value.toString()
+                    );
+                }
+            }
+
+            document.add(pdfTable);
+            document.close();
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "PDF berhasil dibuat:\n" + file.getAbsolutePath()
+            );
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Gagal export PDF stok keluar: " + e.getMessage()
+            );
+        }
     }
 
     /**
@@ -351,23 +1103,6 @@ public class NewJFrame extends javax.swing.JFrame {
      */
     public NewJFrame() {
         initComponents();
-
-        try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
-
-            UIManager.put("Component.arc", 16);
-            UIManager.put("Button.arc", 18);
-            UIManager.put("TextComponent.arc", 12);
-            UIManager.put("ScrollBar.thumbArc", 999);
-            UIManager.put("ScrollBar.width", 10);
-
-            UIManager.put("Table.showHorizontalLines", true);
-            UIManager.put("Table.showVerticalLines", false);
-            UIManager.put("Table.rowHeight", 36);
-
-        } catch (Exception e) {
-            System.out.println("Gagal load FlatLaf: " + e.getMessage());
-        }
 
         cardLayout = (CardLayout) contentPanel.getLayout();
         showPage("dashboard");
@@ -381,8 +1116,17 @@ public class NewJFrame extends javax.swing.JFrame {
         setupPageBackgrounds();
         setupModernButtons();
 
-        loadChartKategori();
-        loadChartStatusStok();
+        setupModernInputs();
+        setupDashboardSearch();
+        loadDashboardData();
+
+        setupStokMasukComponents();
+        loadComboBarangMasuk();
+        loadRiwayatStokMasuk();
+
+        setupStokKeluarComponents();
+        loadComboBarangKeluar();
+        loadRiwayatStokKeluar();
     }
 
     /**
@@ -405,55 +1149,55 @@ public class NewJFrame extends javax.swing.JFrame {
         jLabel24 = new javax.swing.JLabel();
         jPanel6 = new javax.swing.JPanel();
         jLabel25 = new javax.swing.JLabel();
-        jTextField10 = new javax.swing.JTextField();
         jLabel26 = new javax.swing.JLabel();
-        jTextField11 = new javax.swing.JTextField();
+        txtSupplierMasuk = new javax.swing.JTextField();
         jLabel27 = new javax.swing.JLabel();
-        jTextField12 = new javax.swing.JTextField();
-        jTextField13 = new javax.swing.JTextField();
+        txtJumlahMasuk = new javax.swing.JTextField();
         jLabel28 = new javax.swing.JLabel();
-        jButton5 = new javax.swing.JButton();
-        jButton6 = new javax.swing.JButton();
+        btnSimpanStokMasuk = new javax.swing.JButton();
+        btnClearStokMasuk = new javax.swing.JButton();
         jLabel29 = new javax.swing.JLabel();
+        cmbBarangMasuk = new javax.swing.JComboBox<>();
+        spnTanggalMasuk = new javax.swing.JSpinner();
         jPanel7 = new javax.swing.JPanel();
         jLabel30 = new javax.swing.JLabel();
         jLabel31 = new javax.swing.JLabel();
-        jTextField14 = new javax.swing.JTextField();
+        txtSearchStokMasuk = new javax.swing.JTextField();
         jLabel32 = new javax.swing.JLabel();
-        jTextField15 = new javax.swing.JTextField();
         jLabel33 = new javax.swing.JLabel();
-        jTextField16 = new javax.swing.JTextField();
-        jButton7 = new javax.swing.JButton();
-        jButton8 = new javax.swing.JButton();
+        btnExportPdfStokMasuk = new javax.swing.JButton();
+        btnCariStokMasuk = new javax.swing.JButton();
         jScrollPane3 = new javax.swing.JScrollPane();
-        jTable3 = new javax.swing.JTable();
+        tblRiwayatStokMasuk = new javax.swing.JTable();
+        spnSampaiTanggalMasuk = new javax.swing.JSpinner();
+        spnDariTanggalMasuk = new javax.swing.JSpinner();
         stokKeluarPanel = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         jLabel35 = new javax.swing.JLabel();
         jPanel8 = new javax.swing.JPanel();
         jLabel34 = new javax.swing.JLabel();
         jLabel36 = new javax.swing.JLabel();
-        jTextField17 = new javax.swing.JTextField();
         jLabel37 = new javax.swing.JLabel();
-        jTextField18 = new javax.swing.JTextField();
+        txtTujuanKeluar = new javax.swing.JTextField();
         jLabel38 = new javax.swing.JLabel();
-        jTextField19 = new javax.swing.JTextField();
+        txtJumlahKeluar = new javax.swing.JTextField();
         jLabel39 = new javax.swing.JLabel();
-        jTextField20 = new javax.swing.JTextField();
-        jButton9 = new javax.swing.JButton();
-        jButton10 = new javax.swing.JButton();
+        btnClearStokKeluar = new javax.swing.JButton();
+        btnSimpanStokKeluar = new javax.swing.JButton();
+        cmbBarangKeluar = new javax.swing.JComboBox<>();
+        spnTanggalKeluar = new javax.swing.JSpinner();
         jPanel9 = new javax.swing.JPanel();
         jLabel40 = new javax.swing.JLabel();
         jLabel41 = new javax.swing.JLabel();
-        jTextField21 = new javax.swing.JTextField();
+        txtSearchStokKeluar = new javax.swing.JTextField();
         jLabel42 = new javax.swing.JLabel();
-        jTextField22 = new javax.swing.JTextField();
         jLabel43 = new javax.swing.JLabel();
-        jTextField23 = new javax.swing.JTextField();
-        jButton11 = new javax.swing.JButton();
-        jButton12 = new javax.swing.JButton();
+        btnExportPdfStokKeluar = new javax.swing.JButton();
+        btnCariStokKeluar = new javax.swing.JButton();
         jScrollPane4 = new javax.swing.JScrollPane();
-        jTable4 = new javax.swing.JTable();
+        tblRiwayatStokKeluar = new javax.swing.JTable();
+        spnDariTanggalKeluar = new javax.swing.JSpinner();
+        spnSampaiTanggalKeluar = new javax.swing.JSpinner();
         dashboardPanel = new javax.swing.JPanel();
         jLabel5 = new javax.swing.JLabel();
         jLabel11 = new javax.swing.JLabel();
@@ -595,26 +1339,20 @@ public class NewJFrame extends javax.swing.JFrame {
 
         jLabel25.setText("Barang");
 
-        jTextField10.setText("jTextField10");
-
         jLabel26.setText("Supplier");
-
-        jTextField11.setText("jTextField10");
 
         jLabel27.setText("Jumlah");
 
-        jTextField12.setText("jTextField10");
-
-        jTextField13.setText("jTextField10");
-
         jLabel28.setText("Tanggal");
 
-        jButton5.setText("Simpan");
+        btnSimpanStokMasuk.setText("Simpan");
 
-        jButton6.setText("Clear");
+        btnClearStokMasuk.setText("Clear");
 
         jLabel29.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel29.setText("FORM STOK MASUK");
+
+        cmbBarangMasuk.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
         jPanel6.setLayout(jPanel6Layout);
@@ -625,26 +1363,29 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel29)
                     .addGroup(jPanel6Layout.createSequentialGroup()
-                        .addComponent(jButton5)
+                        .addComponent(btnSimpanStokMasuk)
                         .addGap(18, 18, 18)
-                        .addComponent(jButton6))
+                        .addComponent(btnClearStokMasuk))
                     .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                         .addGroup(jPanel6Layout.createSequentialGroup()
-                            .addComponent(jLabel28)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField13, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
+                                    .addComponent(jLabel26)
+                                    .addGap(30, 30, 30))
+                                .addGroup(jPanel6Layout.createSequentialGroup()
+                                    .addComponent(jLabel25)
+                                    .addGap(36, 36, 36)))
+                            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(txtSupplierMasuk, javax.swing.GroupLayout.DEFAULT_SIZE, 115, Short.MAX_VALUE)
+                                .addComponent(cmbBarangMasuk, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                         .addGroup(jPanel6Layout.createSequentialGroup()
-                            .addComponent(jLabel27)
+                            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addComponent(jLabel27)
+                                .addComponent(jLabel28))
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField12, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(jPanel6Layout.createSequentialGroup()
-                            .addComponent(jLabel25)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField10, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(jPanel6Layout.createSequentialGroup()
-                            .addComponent(jLabel26)
-                            .addGap(30, 30, 30)
-                            .addComponent(jTextField11, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(txtJumlahMasuk, javax.swing.GroupLayout.DEFAULT_SIZE, 115, Short.MAX_VALUE)
+                                .addComponent(spnTanggalMasuk)))))
                 .addContainerGap(100, Short.MAX_VALUE))
         );
         jPanel6Layout.setVerticalGroup(
@@ -655,23 +1396,23 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel25)
-                    .addComponent(jTextField10, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(cmbBarangMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel26)
-                    .addComponent(jTextField11, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtSupplierMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel27)
-                    .addComponent(jTextField12, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtJumlahMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel28)
-                    .addComponent(jTextField13, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(spnTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(55, 55, 55)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton5)
-                    .addComponent(jButton6))
+                    .addComponent(btnSimpanStokMasuk)
+                    .addComponent(btnClearStokMasuk))
                 .addContainerGap(292, Short.MAX_VALUE))
         );
 
@@ -680,22 +1421,16 @@ public class NewJFrame extends javax.swing.JFrame {
 
         jLabel31.setText("Search");
 
-        jTextField14.setText("jTextField10");
-
         jLabel32.setText("Dari Tanggal");
-
-        jTextField15.setText("jTextField10");
 
         jLabel33.setText("Sampai Tanggal");
 
-        jTextField16.setText("jTextField10");
+        btnExportPdfStokMasuk.setText("Cetak PDF");
+        btnExportPdfStokMasuk.addActionListener(this::btnExportPdfStokMasukActionPerformed);
 
-        jButton7.setText("Cetak PDF");
-        jButton7.addActionListener(this::jButton7ActionPerformed);
+        btnCariStokMasuk.setText("Cari");
 
-        jButton8.setText("Cari");
-
-        jTable3.setModel(new javax.swing.table.DefaultTableModel(
+        tblRiwayatStokMasuk.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
                 {null, null, null, null},
@@ -706,7 +1441,7 @@ public class NewJFrame extends javax.swing.JFrame {
                 "Title 1", "Title 2", "Title 3", "Title 4"
             }
         ));
-        jScrollPane3.setViewportView(jTable3);
+        jScrollPane3.setViewportView(tblRiwayatStokMasuk);
 
         javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
         jPanel7.setLayout(jPanel7Layout);
@@ -718,22 +1453,26 @@ public class NewJFrame extends javax.swing.JFrame {
                     .addComponent(jScrollPane3)
                     .addGroup(jPanel7Layout.createSequentialGroup()
                         .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jButton7)
-                            .addComponent(jLabel30)
+                            .addComponent(btnExportPdfStokMasuk)
                             .addGroup(jPanel7Layout.createSequentialGroup()
-                                .addComponent(jLabel31)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(jTextField14, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jLabel32)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jTextField15, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jLabel33)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jTextField16, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jButton8)))
+                                .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addGroup(jPanel7Layout.createSequentialGroup()
+                                        .addComponent(jLabel30)
+                                        .addGap(448, 448, 448))
+                                    .addGroup(jPanel7Layout.createSequentialGroup()
+                                        .addComponent(jLabel31)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addComponent(txtSearchStokMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addGap(18, 18, 18)
+                                        .addComponent(jLabel32)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(spnDariTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addGap(18, 18, 18)
+                                        .addComponent(jLabel33)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(spnSampaiTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addGap(18, 18, 18)))
+                                .addComponent(btnCariStokMasuk)))
                         .addGap(0, 141, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -745,14 +1484,14 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel31)
-                    .addComponent(jTextField14, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtSearchStokMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel32)
-                    .addComponent(jTextField15, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel33)
-                    .addComponent(jTextField16, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton8))
+                    .addComponent(btnCariStokMasuk)
+                    .addComponent(spnDariTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(spnSampaiTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 20, Short.MAX_VALUE)
-                .addComponent(jButton7)
+                .addComponent(btnExportPdfStokMasuk)
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 412, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -813,57 +1552,53 @@ public class NewJFrame extends javax.swing.JFrame {
         jPanel8.setPreferredSize(new java.awt.Dimension(326, 318));
 
         jLabel34.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        jLabel34.setText("FORM STOK MASUK");
+        jLabel34.setText("FORM STOK KELUAR");
 
         jLabel36.setText("Barang");
 
-        jTextField17.setText("jTextField10");
-
         jLabel37.setText("Tujuan");
-
-        jTextField18.setText("jTextField10");
 
         jLabel38.setText("Jumlah");
 
-        jTextField19.setText("jTextField10");
-
         jLabel39.setText("Tanggal");
 
-        jTextField20.setText("jTextField10");
+        btnClearStokKeluar.setText("Clear");
 
-        jButton9.setText("Clear");
+        btnSimpanStokKeluar.setText("Simpan");
 
-        jButton10.setText("Simpan");
+        cmbBarangKeluar.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
         jPanel8.setLayout(jPanel8Layout);
         jPanel8Layout.setHorizontalGroup(
             jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel8Layout.createSequentialGroup()
-                .addGap(25, 25, 25)
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(jPanel8Layout.createSequentialGroup()
-                        .addComponent(jButton10)
-                        .addGap(18, 18, 18)
-                        .addComponent(jButton9))
-                    .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                        .addGroup(jPanel8Layout.createSequentialGroup()
-                            .addComponent(jLabel39)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField20, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(jPanel8Layout.createSequentialGroup()
-                            .addComponent(jLabel38)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField19, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(jPanel8Layout.createSequentialGroup()
-                            .addComponent(jLabel36)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jTextField17, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(jPanel8Layout.createSequentialGroup()
-                            .addComponent(jLabel37)
-                            .addGap(30, 30, 30)
-                            .addComponent(jTextField18, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addComponent(jLabel34))
+                        .addContainerGap()
+                        .addComponent(cmbBarangKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel8Layout.createSequentialGroup()
+                        .addGap(25, 25, 25)
+                        .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(jPanel8Layout.createSequentialGroup()
+                                .addComponent(btnSimpanStokKeluar)
+                                .addGap(18, 18, 18)
+                                .addComponent(btnClearStokKeluar))
+                            .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                .addComponent(jLabel36, javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(jPanel8Layout.createSequentialGroup()
+                                    .addComponent(jLabel37)
+                                    .addGap(30, 30, 30)
+                                    .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGroup(jPanel8Layout.createSequentialGroup()
+                                    .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(jLabel38)
+                                        .addComponent(jLabel39))
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.DEFAULT_SIZE, 115, Short.MAX_VALUE)
+                                        .addComponent(spnTanggalKeluar))))
+                            .addComponent(jLabel34))))
                 .addContainerGap(121, Short.MAX_VALUE))
         );
         jPanel8Layout.setVerticalGroup(
@@ -874,24 +1609,24 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel36)
-                    .addComponent(jTextField17, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(cmbBarangKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel37)
-                    .addComponent(jTextField18, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel38)
-                    .addComponent(jTextField19, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel39)
-                    .addComponent(jTextField20, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(spnTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(42, 42, 42)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton10)
-                    .addComponent(jButton9))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(btnSimpanStokKeluar)
+                    .addComponent(btnClearStokKeluar))
+                .addContainerGap(311, Short.MAX_VALUE))
         );
 
         jLabel40.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
@@ -899,22 +1634,16 @@ public class NewJFrame extends javax.swing.JFrame {
 
         jLabel41.setText("Search");
 
-        jTextField21.setText("jTextField10");
-
         jLabel42.setText("Dari Tanggal");
-
-        jTextField22.setText("jTextField10");
 
         jLabel43.setText("Sampai Tanggal");
 
-        jTextField23.setText("jTextField10");
+        btnExportPdfStokKeluar.setText("Cetak PDF");
+        btnExportPdfStokKeluar.addActionListener(this::btnExportPdfStokKeluarActionPerformed);
 
-        jButton11.setText("Cetak PDF");
-        jButton11.addActionListener(this::jButton11ActionPerformed);
+        btnCariStokKeluar.setText("Cari");
 
-        jButton12.setText("Cari");
-
-        jTable4.setModel(new javax.swing.table.DefaultTableModel(
+        tblRiwayatStokKeluar.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
                 {null, null, null, null},
@@ -925,7 +1654,7 @@ public class NewJFrame extends javax.swing.JFrame {
                 "Title 1", "Title 2", "Title 3", "Title 4"
             }
         ));
-        jScrollPane4.setViewportView(jTable4);
+        jScrollPane4.setViewportView(tblRiwayatStokKeluar);
 
         javax.swing.GroupLayout jPanel9Layout = new javax.swing.GroupLayout(jPanel9);
         jPanel9.setLayout(jPanel9Layout);
@@ -937,22 +1666,24 @@ public class NewJFrame extends javax.swing.JFrame {
                     .addComponent(jScrollPane4)
                     .addGroup(jPanel9Layout.createSequentialGroup()
                         .addGroup(jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel40)
+                            .addComponent(btnExportPdfStokKeluar)
                             .addGroup(jPanel9Layout.createSequentialGroup()
-                                .addComponent(jLabel41)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(jTextField21, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(jLabel42)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jTextField22, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGroup(jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel40)
+                                    .addGroup(jPanel9Layout.createSequentialGroup()
+                                        .addComponent(jLabel41)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addComponent(txtSearchStokKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addGap(18, 18, 18)
+                                        .addComponent(jLabel42)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(spnDariTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)))
                                 .addGap(18, 18, 18)
                                 .addComponent(jLabel43)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jTextField23, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(spnSampaiTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 109, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(18, 18, 18)
-                                .addComponent(jButton12))
-                            .addComponent(jButton11))
+                                .addComponent(btnCariStokKeluar)))
                         .addGap(0, 139, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -964,17 +1695,17 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGap(18, 18, 18)
                 .addGroup(jPanel9Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel41)
-                    .addComponent(jTextField21, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(txtSearchStokKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel42)
-                    .addComponent(jTextField22, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel43)
-                    .addComponent(jTextField23, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton12))
+                    .addComponent(btnCariStokKeluar)
+                    .addComponent(spnDariTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(spnSampaiTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(20, 20, 20)
-                .addComponent(jButton11)
+                .addComponent(btnExportPdfStokKeluar)
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 412, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(25, Short.MAX_VALUE))
+                .addContainerGap(27, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout stokKeluarPanelLayout = new javax.swing.GroupLayout(stokKeluarPanel);
@@ -1001,8 +1732,8 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(stokKeluarPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jPanel9, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, 578, Short.MAX_VALUE))
-                .addContainerGap(663, Short.MAX_VALUE))
+                    .addComponent(jPanel8, javax.swing.GroupLayout.DEFAULT_SIZE, 580, Short.MAX_VALUE))
+                .addContainerGap(661, Short.MAX_VALUE))
         );
 
         contentPanel.add(stokKeluarPanel, "stokKeluar");
@@ -1676,13 +2407,13 @@ public class NewJFrame extends javax.swing.JFrame {
         showPage("dashboard");
     }//GEN-LAST:event_btnDashboardActionPerformed
 
-    private void jButton7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton7ActionPerformed
+    private void btnExportPdfStokMasukActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnExportPdfStokMasukActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jButton7ActionPerformed
+    }//GEN-LAST:event_btnExportPdfStokMasukActionPerformed
 
-    private void jButton11ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton11ActionPerformed
+    private void btnExportPdfStokKeluarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnExportPdfStokKeluarActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jButton11ActionPerformed
+    }//GEN-LAST:event_btnExportPdfStokKeluarActionPerformed
 
     private void btnBarangActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBarangActionPerformed
         showPage("barang");
@@ -1724,7 +2455,15 @@ public class NewJFrame extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel barangPanel;
     private javax.swing.JButton btnBarang;
+    private javax.swing.JButton btnCariStokKeluar;
+    private javax.swing.JButton btnCariStokMasuk;
+    private javax.swing.JButton btnClearStokKeluar;
+    private javax.swing.JButton btnClearStokMasuk;
     private javax.swing.JButton btnDashboard;
+    private javax.swing.JButton btnExportPdfStokKeluar;
+    private javax.swing.JButton btnExportPdfStokMasuk;
+    private javax.swing.JButton btnSimpanStokKeluar;
+    private javax.swing.JButton btnSimpanStokMasuk;
     private javax.swing.JButton btnStokKeluar;
     private javax.swing.JButton btnStokMasuk;
     private javax.swing.JPanel cardKategori;
@@ -1732,20 +2471,14 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JPanel cardStokKritis;
     private javax.swing.JPanel cardStokMasuk;
     private javax.swing.JPanel cardTotalBarang;
+    private javax.swing.JComboBox<String> cmbBarangKeluar;
+    private javax.swing.JComboBox<String> cmbBarangMasuk;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel dashboardPanel;
     private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton10;
-    private javax.swing.JButton jButton11;
-    private javax.swing.JButton jButton12;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JButton jButton6;
-    private javax.swing.JButton jButton7;
-    private javax.swing.JButton jButton8;
-    private javax.swing.JButton jButton9;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
@@ -1800,24 +2533,8 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JTable jTable1;
     private javax.swing.JTable jTable2;
-    private javax.swing.JTable jTable3;
-    private javax.swing.JTable jTable4;
     private javax.swing.JTextField jTextField1;
-    private javax.swing.JTextField jTextField10;
-    private javax.swing.JTextField jTextField11;
-    private javax.swing.JTextField jTextField12;
-    private javax.swing.JTextField jTextField13;
-    private javax.swing.JTextField jTextField14;
-    private javax.swing.JTextField jTextField15;
-    private javax.swing.JTextField jTextField16;
-    private javax.swing.JTextField jTextField17;
-    private javax.swing.JTextField jTextField18;
-    private javax.swing.JTextField jTextField19;
     private javax.swing.JTextField jTextField2;
-    private javax.swing.JTextField jTextField20;
-    private javax.swing.JTextField jTextField21;
-    private javax.swing.JTextField jTextField22;
-    private javax.swing.JTextField jTextField23;
     private javax.swing.JTextField jTextField3;
     private javax.swing.JTextField jTextField4;
     private javax.swing.JTextField jTextField5;
@@ -1844,8 +2561,22 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JPanel panelChartKategori;
     private javax.swing.JPanel panelChartStatusStok;
     private javax.swing.JPanel sidebarPanel;
+    private javax.swing.JSpinner spnDariTanggalKeluar;
+    private javax.swing.JSpinner spnDariTanggalMasuk;
+    private javax.swing.JSpinner spnSampaiTanggalKeluar;
+    private javax.swing.JSpinner spnSampaiTanggalMasuk;
+    private javax.swing.JSpinner spnTanggalKeluar;
+    private javax.swing.JSpinner spnTanggalMasuk;
     private javax.swing.JPanel statsPanel;
     private javax.swing.JPanel stokKeluarPanel;
     private javax.swing.JPanel stokMasukPanel;
+    private javax.swing.JTable tblRiwayatStokKeluar;
+    private javax.swing.JTable tblRiwayatStokMasuk;
+    private javax.swing.JTextField txtJumlahKeluar;
+    private javax.swing.JTextField txtJumlahMasuk;
+    private javax.swing.JTextField txtSearchStokKeluar;
+    private javax.swing.JTextField txtSearchStokMasuk;
+    private javax.swing.JTextField txtSupplierMasuk;
+    private javax.swing.JTextField txtTujuanKeluar;
     // End of variables declaration//GEN-END:variables
 }
