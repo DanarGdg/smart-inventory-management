@@ -62,6 +62,11 @@ import org.openpdf.text.pdf.PdfWriter;
 import com.mycompany.smart.inventory.management.model.StokKeluar;
 import com.mycompany.smart.inventory.management.service.StokKeluarService;
 import com.mycompany.smart.inventory.management.service.BarangService;
+import com.mycompany.smart.inventory.management.model.User;
+import java.awt.Cursor;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import com.mycompany.smart.inventory.management.service.UserService;
 
 /**
  *
@@ -81,6 +86,250 @@ public class NewJFrame extends javax.swing.JFrame {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
     private BarangService barangService = new BarangService();
     private String selectedKodeBarang = null;
+    private User currentUser;
+    private UserService userService = new UserService();
+    private int selectedIdUser = 0;
+
+    private void setupLogout() {
+        lblLogout.setForeground(AppColors.TEXT_PRIMARY);
+        lblLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        lblLogout.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                logout();
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                lblLogout.setForeground(AppColors.PRIMARY);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                lblLogout.setForeground(AppColors.TEXT_PRIMARY);
+            }
+        });
+    }
+
+    private void logout() {
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Apakah Anda yakin ingin logout?",
+                "Konfirmasi Logout",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            currentUser = null;
+
+            LoginFrame loginFrame = new LoginFrame();
+            loginFrame.setVisible(true);
+
+            this.dispose();
+        }
+    }
+
+    private void loadDataUser() {
+        List<User> list = userService.getAllUsers();
+        tampilkanDataUser(list);
+    }
+
+    private void tampilkanDataUser(List<User> list) {
+        DefaultTableModel model = new DefaultTableModel();
+
+        model.addColumn("No");
+        model.addColumn("ID");
+        model.addColumn("Username");
+        model.addColumn("Nama Lengkap");
+        model.addColumn("Role");
+
+        int no = 1;
+
+        for (User user : list) {
+            model.addRow(new Object[]{
+                no++,
+                user.getIdUser(),
+                user.getUsername(),
+                user.getNamaLengkap(),
+                user.getRole()
+            });
+        }
+
+        tblUser.setModel(model);
+        styleTable(tblUser);
+
+        if (tblUser.getColumnModel().getColumnCount() > 1) {
+            tblUser.getColumnModel().getColumn(1).setMinWidth(0);
+            tblUser.getColumnModel().getColumn(1).setMaxWidth(0);
+            tblUser.getColumnModel().getColumn(1).setWidth(0);
+        }
+    }
+
+    private void tambahUser() {
+        try {
+            String username = txtUsernameUser.getText();
+            String password = new String(txtPasswordUser.getPassword());
+            String namaLengkap = txtNamaLengkapUser.getText();
+            String role = cmbRoleUser.getSelectedItem().toString();
+
+            boolean berhasil = userService.tambahUser(
+                    username,
+                    password,
+                    namaLengkap,
+                    role
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "User berhasil ditambahkan");
+                clearFormUser();
+                loadDataUser();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    private void updateUser() {
+        try {
+            String username = txtUsernameUser.getText();
+            String password = new String(txtPasswordUser.getPassword());
+            String namaLengkap = txtNamaLengkapUser.getText();
+            String role = cmbRoleUser.getSelectedItem().toString();
+
+            boolean berhasil = userService.updateUser(
+                    selectedIdUser,
+                    username,
+                    password,
+                    namaLengkap,
+                    role
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "User berhasil diupdate");
+                clearFormUser();
+                loadDataUser();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    private void hapusUser() {
+        try {
+            if (selectedIdUser <= 0) {
+                JOptionPane.showMessageDialog(this, "Pilih user yang ingin dihapus");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Yakin ingin menghapus user ini?",
+                    "Konfirmasi Hapus",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (confirm != JOptionPane.YES_OPTION) {
+                return;
+            }
+
+            int currentUserId = currentUser == null ? 0 : currentUser.getIdUser();
+
+            boolean berhasil = userService.hapusUser(
+                    selectedIdUser,
+                    currentUserId
+            );
+
+            if (berhasil) {
+                JOptionPane.showMessageDialog(this, "User berhasil dihapus");
+                clearFormUser();
+                loadDataUser();
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    private void cariUser() {
+        String keyword = txtSearchUser.getText();
+        List<User> list = userService.searchUsers(keyword);
+        tampilkanDataUser(list);
+    }
+
+    private void clearFormUser() {
+        selectedIdUser = 0;
+
+        txtUsernameUser.setText("");
+        txtPasswordUser.setText("");
+        txtNamaLengkapUser.setText("");
+
+        if (cmbRoleUser.getItemCount() > 0) {
+            cmbRoleUser.setSelectedIndex(0);
+        }
+
+        tblUser.clearSelection();
+        txtUsernameUser.requestFocus();
+    }
+
+    private void setupUserManagementComponents() {
+        cmbRoleUser.removeAllItems();
+        cmbRoleUser.addItem("ADMIN");
+        cmbRoleUser.addItem("PETUGAS");
+
+        styleTextField(txtUsernameUser);
+        styleTextField(txtNamaLengkapUser);
+        styleTextField(txtSearchUser);
+
+        txtPasswordUser.putClientProperty("JComponent.roundRect", true);
+
+        styleComboBox(cmbRoleUser);
+
+        stylePrimaryButton(btnTambahUser);
+        styleSecondaryButton(btnUpdateUser);
+        styleSecondaryButton(btnHapusUser);
+        styleSecondaryButton(btnClearUser);
+        styleSecondaryButton(btnCariUser);
+
+        styleTable(tblUser);
+
+        btnTambahUser.addActionListener(e -> tambahUser());
+        btnUpdateUser.addActionListener(e -> updateUser());
+        btnHapusUser.addActionListener(e -> hapusUser());
+        btnClearUser.addActionListener(e -> clearFormUser());
+        btnCariUser.addActionListener(e -> cariUser());
+
+        txtSearchUser.addActionListener(e -> cariUser());
+
+        tblUser.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int selectedRow = tblUser.rowAtPoint(e.getPoint());
+
+                if (selectedRow >= 0) {
+                    selectedIdUser = Integer.parseInt(
+                            tblUser.getValueAt(selectedRow, 1).toString()
+                    );
+
+                    txtUsernameUser.setText(
+                            tblUser.getValueAt(selectedRow, 2).toString()
+                    );
+
+                    txtNamaLengkapUser.setText(
+                            tblUser.getValueAt(selectedRow, 3).toString()
+                    );
+
+                    cmbRoleUser.setSelectedItem(
+                            tblUser.getValueAt(selectedRow, 4).toString()
+                    );
+
+                    txtPasswordUser.setText("");
+                }
+            }
+        });
+    }
 
     private void loadDashboardData() {
         try {
@@ -356,6 +605,9 @@ public class NewJFrame extends javax.swing.JFrame {
             case "stokKeluar":
                 setActiveButton(btnStokKeluar);
                 break;
+            case "user":
+                setActiveButton(btnKelolaUser);
+                break;
         }
     }
 
@@ -364,12 +616,14 @@ public class NewJFrame extends javax.swing.JFrame {
             btnDashboard,
             btnBarang,
             btnStokMasuk,
-            btnStokKeluar
+            btnStokKeluar,
+            btnKelolaUser
         };
 
         for (JButton btn : buttons) {
             btn.setBackground(AppColors.SIDEBAR_BG);
             btn.setForeground(AppColors.SIDEBAR_TEXT);
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         }
     }
 
@@ -389,6 +643,7 @@ public class NewJFrame extends javax.swing.JFrame {
         styleSidebarButton(btnBarang);
         styleSidebarButton(btnStokMasuk);
         styleSidebarButton(btnStokKeluar);
+        styleSidebarButton(btnKelolaUser);
     }
 
     private void styleSidebarButton(JButton button) {
@@ -410,6 +665,7 @@ public class NewJFrame extends javax.swing.JFrame {
         btnBarang.setHorizontalAlignment(SwingConstants.LEFT);
         btnStokMasuk.setHorizontalAlignment(SwingConstants.LEFT);
         btnStokKeluar.setHorizontalAlignment(SwingConstants.LEFT);
+        btnKelolaUser.setHorizontalAlignment(SwingConstants.LEFT);
     }
 
     private void setupModernFrame() {
@@ -519,6 +775,8 @@ public class NewJFrame extends javax.swing.JFrame {
         styleContentCard(jPanel7); // RIWAYAT STOK MASUK
         styleContentCard(jPanel8); // FORM STOK KELUAR
         styleContentCard(jPanel9); // RIWAYAT STOK KELUAR
+        styleContentCard(panelFormUser);
+        styleContentCard(panelDaftarUser);
     }
 
     private void styleContentCard(JPanel panel) {
@@ -536,6 +794,7 @@ public class NewJFrame extends javax.swing.JFrame {
         barangPanel.setBackground(new Color(243, 244, 246));
         stokMasukPanel.setBackground(new Color(243, 244, 246));
         stokKeluarPanel.setBackground(new Color(243, 244, 246));
+        userPanel.setBackground(new Color(243, 244, 246));
     }
 
     private void stylePrimaryButton(JButton button) {
@@ -1107,7 +1366,6 @@ public class NewJFrame extends javax.swing.JFrame {
     // ============================================================
     // BARANG PAGE LOGIC
     // ============================================================
-
     private void loadKategoriDropdownBarang() {
         jComboBox1.removeAllItems();
         List<Map<String, Object>> listKategori = barangDAO.getAllKategori();
@@ -1254,9 +1512,11 @@ public class NewJFrame extends javax.swing.JFrame {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
                 searchDataBarangByFilter();
             }
+
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
                 searchDataBarangByFilter();
             }
+
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
                 searchDataBarangByFilter();
             }
@@ -1281,10 +1541,40 @@ public class NewJFrame extends javax.swing.JFrame {
         });
     }
 
+    private void setupRoleAccess() {
+        if (currentUser == null) {
+            btnKelolaUser.setVisible(false);
+            return;
+        }
+
+        jLabel2.setText(currentUser.getNamaLengkap() + " (" + currentUser.getRole() + ")");
+
+        if (currentUser.isAdmin()) {
+            btnDashboard.setVisible(true);
+            btnBarang.setVisible(true);
+            btnStokMasuk.setVisible(true);
+            btnStokKeluar.setVisible(true);
+            btnKelolaUser.setVisible(true);
+
+        } else if (currentUser.isPetugas()) {
+            btnDashboard.setVisible(true);
+            btnBarang.setVisible(false);
+            btnStokMasuk.setVisible(true);
+            btnStokKeluar.setVisible(true);
+            btnKelolaUser.setVisible(false);
+        }
+    }
+
     /**
      * Creates new form NewJFrame
      */
     public NewJFrame() {
+        this(null);
+    }
+
+    public NewJFrame(User user) {
+        this.currentUser = user;
+
         initComponents();
 
         cardLayout = (CardLayout) contentPanel.getLayout();
@@ -1312,6 +1602,12 @@ public class NewJFrame extends javax.swing.JFrame {
         loadRiwayatStokKeluar();
 
         setupBarangComponents();
+
+        setupUserManagementComponents();
+        loadDataUser();
+
+        setupLogout();
+        setupRoleAccess();
     }
 
     /**
@@ -1324,7 +1620,7 @@ public class NewJFrame extends javax.swing.JFrame {
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
-        jLabel3 = new javax.swing.JLabel();
+        lblLogout = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
@@ -1441,6 +1737,29 @@ public class NewJFrame extends javax.swing.JFrame {
         jScrollPane2 = new javax.swing.JScrollPane();
         jTable2 = new javax.swing.JTable();
         jComboBox2 = new javax.swing.JComboBox<>();
+        userPanel = new javax.swing.JPanel();
+        jLabel45 = new javax.swing.JLabel();
+        panelFormUser = new javax.swing.JPanel();
+        jLabel46 = new javax.swing.JLabel();
+        jLabel47 = new javax.swing.JLabel();
+        txtUsernameUser = new javax.swing.JTextField();
+        jLabel48 = new javax.swing.JLabel();
+        jLabel49 = new javax.swing.JLabel();
+        cmbRoleUser = new javax.swing.JComboBox<>();
+        jLabel50 = new javax.swing.JLabel();
+        txtNamaLengkapUser = new javax.swing.JTextField();
+        btnTambahUser = new javax.swing.JButton();
+        btnUpdateUser = new javax.swing.JButton();
+        btnHapusUser = new javax.swing.JButton();
+        btnClearUser = new javax.swing.JButton();
+        txtPasswordUser = new javax.swing.JPasswordField();
+        panelDaftarUser = new javax.swing.JPanel();
+        jLabel51 = new javax.swing.JLabel();
+        jLabel52 = new javax.swing.JLabel();
+        txtSearchUser = new javax.swing.JTextField();
+        jScrollPane5 = new javax.swing.JScrollPane();
+        tblUser = new javax.swing.JTable();
+        btnCariUser = new javax.swing.JButton();
         sidebarPanel = new javax.swing.JPanel();
         btnDashboard = new javax.swing.JButton();
         lblAppName = new javax.swing.JLabel();
@@ -1448,6 +1767,7 @@ public class NewJFrame extends javax.swing.JFrame {
         btnBarang = new javax.swing.JButton();
         btnStokMasuk = new javax.swing.JButton();
         btnStokKeluar = new javax.swing.JButton();
+        btnKelolaUser = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setMinimumSize(new java.awt.Dimension(1200, 700));
@@ -1456,8 +1776,8 @@ public class NewJFrame extends javax.swing.JFrame {
         jPanel1.setToolTipText("");
         jPanel1.setPreferredSize(new java.awt.Dimension(1327, 60));
 
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel3.setText("Logout");
+        lblLogout.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        lblLogout.setText("Logout");
 
         jLabel4.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel4.setText("|");
@@ -1475,12 +1795,12 @@ public class NewJFrame extends javax.swing.JFrame {
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addGap(20, 20, 20)
                 .addComponent(jLabel1)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 929, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 1058, Short.MAX_VALUE)
                 .addComponent(jLabel2)
                 .addGap(18, 18, 18)
                 .addComponent(jLabel4)
                 .addGap(18, 18, 18)
-                .addComponent(jLabel3)
+                .addComponent(lblLogout)
                 .addGap(22, 22, 22))
         );
         jPanel1Layout.setVerticalGroup(
@@ -1490,7 +1810,7 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(jLabel2)
-                        .addComponent(jLabel3)
+                        .addComponent(lblLogout)
                         .addComponent(jLabel4))
                     .addComponent(jLabel1))
                 .addContainerGap(11, Short.MAX_VALUE))
@@ -1635,30 +1955,27 @@ public class NewJFrame extends javax.swing.JFrame {
             .addGroup(jPanel7Layout.createSequentialGroup()
                 .addGap(35, 35, 35)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel7Layout.createSequentialGroup()
+                        .addComponent(jLabel31)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(txtSearchStokMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(jLabel32)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(spnDariTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(jLabel33)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(spnSampaiTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 131, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(btnCariStokMasuk)
+                        .addGap(0, 240, Short.MAX_VALUE))
                     .addComponent(jScrollPane3)
                     .addGroup(jPanel7Layout.createSequentialGroup()
                         .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(btnExportPdfStokMasuk)
-                            .addGroup(jPanel7Layout.createSequentialGroup()
-                                .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addGroup(jPanel7Layout.createSequentialGroup()
-                                        .addComponent(jLabel30)
-                                        .addGap(448, 448, 448))
-                                    .addGroup(jPanel7Layout.createSequentialGroup()
-                                        .addComponent(jLabel31)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                        .addComponent(txtSearchStokMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addGap(18, 18, 18)
-                                        .addComponent(jLabel32)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(spnDariTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addGap(18, 18, 18)
-                                        .addComponent(jLabel33)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(spnSampaiTanggalMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addGap(18, 18, 18)))
-                                .addComponent(btnCariStokMasuk)))
-                        .addGap(0, 141, Short.MAX_VALUE)))
+                            .addComponent(jLabel30)
+                            .addComponent(btnExportPdfStokMasuk))
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         jPanel7Layout.setVerticalGroup(
@@ -1758,60 +2075,53 @@ public class NewJFrame extends javax.swing.JFrame {
         jPanel8Layout.setHorizontalGroup(
             jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel8Layout.createSequentialGroup()
-                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                .addGap(25, 25, 25)
+                .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel8Layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(cmbBarangKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel8Layout.createSequentialGroup()
-                        .addGap(25, 25, 25)
                         .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(jPanel8Layout.createSequentialGroup()
-                                .addComponent(btnSimpanStokKeluar)
-                                .addGap(18, 18, 18)
-                                .addComponent(btnClearStokKeluar))
-                            .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                .addComponent(jLabel36, javax.swing.GroupLayout.Alignment.LEADING)
-                                .addGroup(jPanel8Layout.createSequentialGroup()
-                                    .addComponent(jLabel37)
-                                    .addGap(30, 30, 30)
-                                    .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGroup(jPanel8Layout.createSequentialGroup()
-                                    .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(jLabel38)
-                                        .addComponent(jLabel39))
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                        .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.DEFAULT_SIZE, 115, Short.MAX_VALUE)
-                                        .addComponent(spnTanggalKeluar))))
-                            .addComponent(jLabel34))))
-                .addContainerGap(121, Short.MAX_VALUE))
+                            .addComponent(jLabel36)
+                            .addComponent(jLabel37)
+                            .addComponent(jLabel38)
+                            .addComponent(jLabel39))
+                        .addGap(23, 23, 23)
+                        .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(cmbBarangKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(spnTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(jPanel8Layout.createSequentialGroup()
+                        .addComponent(btnSimpanStokKeluar)
+                        .addGap(18, 18, 18)
+                        .addComponent(btnClearStokKeluar))
+                    .addComponent(jLabel34))
+                .addContainerGap(90, Short.MAX_VALUE))
         );
         jPanel8Layout.setVerticalGroup(
             jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel8Layout.createSequentialGroup()
                 .addGap(24, 24, 24)
-                .addComponent(jLabel34)
-                .addGap(18, 18, 18)
+                .addComponent(jLabel34, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(38, 38, 38)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel36)
                     .addComponent(cmbBarangKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel37)
-                    .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtTujuanKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel37))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel38)
-                    .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(txtJumlahKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel38))
                 .addGap(18, 18, 18)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel39)
-                    .addComponent(spnTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(42, 42, 42)
+                    .addComponent(spnTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel39))
+                .addGap(59, 59, 59)
                 .addGroup(jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnSimpanStokKeluar)
                     .addComponent(btnClearStokKeluar))
-                .addContainerGap(311, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         jLabel40.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
@@ -1841,6 +2151,12 @@ public class NewJFrame extends javax.swing.JFrame {
         ));
         jScrollPane4.setViewportView(tblRiwayatStokKeluar);
 
+        spnDariTanggalKeluar.setMinimumSize(new java.awt.Dimension(80, 22));
+        spnDariTanggalKeluar.setPreferredSize(new java.awt.Dimension(80, 22));
+
+        spnSampaiTanggalKeluar.setMinimumSize(new java.awt.Dimension(80, 22));
+        spnSampaiTanggalKeluar.setPreferredSize(new java.awt.Dimension(80, 22));
+
         javax.swing.GroupLayout jPanel9Layout = new javax.swing.GroupLayout(jPanel9);
         jPanel9.setLayout(jPanel9Layout);
         jPanel9Layout.setHorizontalGroup(
@@ -1869,7 +2185,7 @@ public class NewJFrame extends javax.swing.JFrame {
                                 .addComponent(spnSampaiTanggalKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, 109, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(18, 18, 18)
                                 .addComponent(btnCariStokKeluar)))
-                        .addGap(0, 139, Short.MAX_VALUE)))
+                        .addGap(0, 269, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         jPanel9Layout.setVerticalGroup(
@@ -1966,7 +2282,7 @@ public class NewJFrame extends javax.swing.JFrame {
         panelChartStatusStok.setLayout(panelChartStatusStokLayout);
         panelChartStatusStokLayout.setHorizontalGroup(
             panelChartStatusStokLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 520, Short.MAX_VALUE)
+            .addGap(0, 649, Short.MAX_VALUE)
         );
         panelChartStatusStokLayout.setVerticalGroup(
             panelChartStatusStokLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2224,7 +2540,7 @@ public class NewJFrame extends javax.swing.JFrame {
                             .addGroup(dashboardPanelLayout.createSequentialGroup()
                                 .addComponent(panelChartKategori, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(18, 18, 18)
-                                .addComponent(panelChartStatusStok, javax.swing.GroupLayout.DEFAULT_SIZE, 520, Short.MAX_VALUE)))
+                                .addComponent(panelChartStatusStok, javax.swing.GroupLayout.DEFAULT_SIZE, 649, Short.MAX_VALUE)))
                         .addContainerGap())
                     .addGroup(dashboardPanelLayout.createSequentialGroup()
                         .addComponent(statsPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2403,7 +2719,7 @@ public class NewJFrame extends javax.swing.JFrame {
             .addGroup(jPanel4Layout.createSequentialGroup()
                 .addGap(24, 24, 24)
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 841, Short.MAX_VALUE)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 973, Short.MAX_VALUE)
                     .addGroup(jPanel4Layout.createSequentialGroup()
                         .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(jPanel4Layout.createSequentialGroup()
@@ -2442,7 +2758,7 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addGroup(barangPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(barangPanelLayout.createSequentialGroup()
                         .addComponent(jLabel13)
-                        .addGap(0, 998, Short.MAX_VALUE))
+                        .addGap(0, 1127, Short.MAX_VALUE))
                     .addGroup(barangPanelLayout.createSequentialGroup()
                         .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -2462,6 +2778,189 @@ public class NewJFrame extends javax.swing.JFrame {
         );
 
         contentPanel.add(barangPanel, "barang");
+
+        jLabel45.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
+        jLabel45.setText("MANAJEMEN USER");
+
+        panelFormUser.setPreferredSize(new java.awt.Dimension(322, 989));
+
+        jLabel46.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel46.setText("FORM USER");
+
+        jLabel47.setText("Username");
+
+        jLabel48.setText("Password");
+
+        jLabel49.setText("Role");
+
+        cmbRoleUser.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+
+        jLabel50.setText("Nama Lengkap");
+
+        btnTambahUser.setText("Tambah");
+        btnTambahUser.addActionListener(this::btnTambahUserActionPerformed);
+
+        btnUpdateUser.setText("Update");
+        btnUpdateUser.addActionListener(this::btnUpdateUserActionPerformed);
+
+        btnHapusUser.setText("Hapus");
+        btnHapusUser.addActionListener(this::btnHapusUserActionPerformed);
+
+        btnClearUser.setText("Clear");
+        btnClearUser.addActionListener(this::btnClearUserActionPerformed);
+
+        javax.swing.GroupLayout panelFormUserLayout = new javax.swing.GroupLayout(panelFormUser);
+        panelFormUser.setLayout(panelFormUserLayout);
+        panelFormUserLayout.setHorizontalGroup(
+            panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelFormUserLayout.createSequentialGroup()
+                .addGap(23, 23, 23)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(panelFormUserLayout.createSequentialGroup()
+                        .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panelFormUserLayout.createSequentialGroup()
+                                .addComponent(btnTambahUser)
+                                .addGap(18, 18, 18))
+                            .addGroup(panelFormUserLayout.createSequentialGroup()
+                                .addComponent(btnHapusUser)
+                                .addGap(19, 19, 19)))
+                        .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(btnClearUser)
+                            .addComponent(btnUpdateUser)))
+                    .addComponent(jLabel46)
+                    .addGroup(panelFormUserLayout.createSequentialGroup()
+                        .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel47)
+                            .addComponent(jLabel49)
+                            .addComponent(jLabel50)
+                            .addComponent(jLabel48))
+                        .addGap(55, 55, 55)
+                        .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(txtUsernameUser)
+                            .addComponent(txtNamaLengkapUser)
+                            .addComponent(cmbRoleUser, 0, 131, Short.MAX_VALUE)
+                            .addComponent(txtPasswordUser))))
+                .addContainerGap(96, Short.MAX_VALUE))
+        );
+        panelFormUserLayout.setVerticalGroup(
+            panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelFormUserLayout.createSequentialGroup()
+                .addGap(18, 18, 18)
+                .addComponent(jLabel46)
+                .addGap(18, 18, 18)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel47)
+                    .addComponent(txtUsernameUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel48)
+                    .addComponent(txtPasswordUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel50)
+                    .addComponent(txtNamaLengkapUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel49)
+                    .addComponent(cmbRoleUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(60, 60, 60)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnTambahUser)
+                    .addComponent(btnUpdateUser))
+                .addGap(18, 18, 18)
+                .addGroup(panelFormUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnHapusUser)
+                    .addComponent(btnClearUser))
+                .addContainerGap(667, Short.MAX_VALUE))
+        );
+
+        panelDaftarUser.setPreferredSize(new java.awt.Dimension(868, 1208));
+
+        jLabel51.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
+        jLabel51.setText("DAFTAR USER");
+
+        jLabel52.setText("Search");
+
+        tblUser.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane5.setViewportView(tblUser);
+
+        btnCariUser.setText("Cari");
+        btnCariUser.addActionListener(this::btnCariUserActionPerformed);
+
+        javax.swing.GroupLayout panelDaftarUserLayout = new javax.swing.GroupLayout(panelDaftarUser);
+        panelDaftarUser.setLayout(panelDaftarUserLayout);
+        panelDaftarUserLayout.setHorizontalGroup(
+            panelDaftarUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelDaftarUserLayout.createSequentialGroup()
+                .addGap(23, 23, 23)
+                .addGroup(panelDaftarUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 887, Short.MAX_VALUE)
+                    .addGroup(panelDaftarUserLayout.createSequentialGroup()
+                        .addComponent(jLabel51)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(panelDaftarUserLayout.createSequentialGroup()
+                        .addComponent(jLabel52)
+                        .addGap(55, 55, 55)
+                        .addComponent(txtSearchUser, javax.swing.GroupLayout.PREFERRED_SIZE, 131, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(btnCariUser)
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
+        );
+        panelDaftarUserLayout.setVerticalGroup(
+            panelDaftarUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(panelDaftarUserLayout.createSequentialGroup()
+                .addGap(18, 18, 18)
+                .addComponent(jLabel51)
+                .addGap(18, 18, 18)
+                .addGroup(panelDaftarUserLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel52)
+                    .addComponent(txtSearchUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnCariUser))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 45, Short.MAX_VALUE)
+                .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 578, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(506, 506, 506))
+        );
+
+        javax.swing.GroupLayout userPanelLayout = new javax.swing.GroupLayout(userPanel);
+        userPanel.setLayout(userPanelLayout);
+        userPanelLayout.setHorizontalGroup(
+            userPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(userPanelLayout.createSequentialGroup()
+                .addGap(31, 31, 31)
+                .addGroup(userPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(userPanelLayout.createSequentialGroup()
+                        .addComponent(jLabel45)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(userPanelLayout.createSequentialGroup()
+                        .addComponent(panelFormUser, javax.swing.GroupLayout.DEFAULT_SIZE, 383, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(panelDaftarUser, javax.swing.GroupLayout.PREFERRED_SIZE, 910, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(31, 31, 31))))
+        );
+        userPanelLayout.setVerticalGroup(
+            userPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(userPanelLayout.createSequentialGroup()
+                .addGap(31, 31, 31)
+                .addComponent(jLabel45)
+                .addGap(30, 30, 30)
+                .addGroup(userPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(panelFormUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(panelDaftarUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(52, Short.MAX_VALUE))
+        );
+
+        contentPanel.add(userPanel, "user");
 
         sidebarPanel.setBackground(new java.awt.Color(255, 255, 255));
         sidebarPanel.setPreferredSize(new java.awt.Dimension(220, 0));
@@ -2514,6 +3013,16 @@ public class NewJFrame extends javax.swing.JFrame {
         btnStokKeluar.setPreferredSize(new java.awt.Dimension(170, 42));
         btnStokKeluar.addActionListener(this::btnStokKeluarActionPerformed);
 
+        btnKelolaUser.setBackground(new java.awt.Color(255, 255, 255));
+        btnKelolaUser.setFont(new java.awt.Font("Segoe UI", 0, 13)); // NOI18N
+        btnKelolaUser.setForeground(new java.awt.Color(71, 85, 105));
+        btnKelolaUser.setText("Kelola User");
+        btnKelolaUser.setBorder(null);
+        btnKelolaUser.setFocusPainted(false);
+        btnKelolaUser.setOpaque(true);
+        btnKelolaUser.setPreferredSize(new java.awt.Dimension(170, 42));
+        btnKelolaUser.addActionListener(this::btnKelolaUserActionPerformed);
+
         javax.swing.GroupLayout sidebarPanelLayout = new javax.swing.GroupLayout(sidebarPanel);
         sidebarPanel.setLayout(sidebarPanelLayout);
         sidebarPanelLayout.setHorizontalGroup(
@@ -2526,7 +3035,8 @@ public class NewJFrame extends javax.swing.JFrame {
                     .addComponent(btnBarang, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel44)
                     .addComponent(lblAppName)
-                    .addComponent(btnDashboard, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(btnDashboard, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(btnKelolaUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap(10, Short.MAX_VALUE))
         );
         sidebarPanelLayout.setVerticalGroup(
@@ -2544,6 +3054,8 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addComponent(btnStokMasuk, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(btnStokKeluar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
+                .addComponent(btnKelolaUser, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -2555,7 +3067,7 @@ public class NewJFrame extends javax.swing.JFrame {
                 .addComponent(sidebarPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(contentPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1440, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1569, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2723,6 +3235,30 @@ public class NewJFrame extends javax.swing.JFrame {
         showPage("stokKeluar");
     }//GEN-LAST:event_btnStokKeluarActionPerformed
 
+    private void btnTambahUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnTambahUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnTambahUserActionPerformed
+
+    private void btnUpdateUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUpdateUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnUpdateUserActionPerformed
+
+    private void btnHapusUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHapusUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnHapusUserActionPerformed
+
+    private void btnClearUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnClearUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnClearUserActionPerformed
+
+    private void btnCariUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCariUserActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_btnCariUserActionPerformed
+
+    private void btnKelolaUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnKelolaUserActionPerformed
+        showPage("user");
+    }//GEN-LAST:event_btnKelolaUserActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -2753,15 +3289,21 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnBarang;
     private javax.swing.JButton btnCariStokKeluar;
     private javax.swing.JButton btnCariStokMasuk;
+    private javax.swing.JButton btnCariUser;
     private javax.swing.JButton btnClearStokKeluar;
     private javax.swing.JButton btnClearStokMasuk;
+    private javax.swing.JButton btnClearUser;
     private javax.swing.JButton btnDashboard;
     private javax.swing.JButton btnExportPdfStokKeluar;
     private javax.swing.JButton btnExportPdfStokMasuk;
+    private javax.swing.JButton btnHapusUser;
+    private javax.swing.JButton btnKelolaUser;
     private javax.swing.JButton btnSimpanStokKeluar;
     private javax.swing.JButton btnSimpanStokMasuk;
     private javax.swing.JButton btnStokKeluar;
     private javax.swing.JButton btnStokMasuk;
+    private javax.swing.JButton btnTambahUser;
+    private javax.swing.JButton btnUpdateUser;
     private javax.swing.JPanel cardKategori;
     private javax.swing.JPanel cardStokKeluar;
     private javax.swing.JPanel cardStokKritis;
@@ -2769,6 +3311,7 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JPanel cardTotalBarang;
     private javax.swing.JComboBox<String> cmbBarangKeluar;
     private javax.swing.JComboBox<String> cmbBarangMasuk;
+    private javax.swing.JComboBox<String> cmbRoleUser;
     private javax.swing.JPanel contentPanel;
     private javax.swing.JPanel dashboardPanel;
     private javax.swing.JButton jButton1;
@@ -2798,7 +3341,6 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel27;
     private javax.swing.JLabel jLabel28;
     private javax.swing.JLabel jLabel29;
-    private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel30;
     private javax.swing.JLabel jLabel31;
     private javax.swing.JLabel jLabel32;
@@ -2815,7 +3357,15 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel42;
     private javax.swing.JLabel jLabel43;
     private javax.swing.JLabel jLabel44;
+    private javax.swing.JLabel jLabel45;
+    private javax.swing.JLabel jLabel46;
+    private javax.swing.JLabel jLabel47;
+    private javax.swing.JLabel jLabel48;
+    private javax.swing.JLabel jLabel49;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel50;
+    private javax.swing.JLabel jLabel51;
+    private javax.swing.JLabel jLabel52;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
@@ -2829,6 +3379,7 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JTable jTable1;
     private javax.swing.JTable jTable2;
     private javax.swing.JTextField jTextField1;
@@ -2844,6 +3395,7 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblInfoStokKritis;
     private javax.swing.JLabel lblInfoStokMasuk;
     private javax.swing.JLabel lblInfoTotalBarang;
+    private javax.swing.JLabel lblLogout;
     private javax.swing.JLabel lblTitleKategori;
     private javax.swing.JLabel lblTitleStokKeluar;
     private javax.swing.JLabel lblTitleStokKritis;
@@ -2856,6 +3408,8 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblValueTotalBarang;
     private javax.swing.JPanel panelChartKategori;
     private javax.swing.JPanel panelChartStatusStok;
+    private javax.swing.JPanel panelDaftarUser;
+    private javax.swing.JPanel panelFormUser;
     private javax.swing.JPanel sidebarPanel;
     private javax.swing.JSpinner spnDariTanggalKeluar;
     private javax.swing.JSpinner spnDariTanggalMasuk;
@@ -2868,11 +3422,17 @@ public class NewJFrame extends javax.swing.JFrame {
     private javax.swing.JPanel stokMasukPanel;
     private javax.swing.JTable tblRiwayatStokKeluar;
     private javax.swing.JTable tblRiwayatStokMasuk;
+    private javax.swing.JTable tblUser;
     private javax.swing.JTextField txtJumlahKeluar;
     private javax.swing.JTextField txtJumlahMasuk;
+    private javax.swing.JTextField txtNamaLengkapUser;
+    private javax.swing.JPasswordField txtPasswordUser;
     private javax.swing.JTextField txtSearchStokKeluar;
     private javax.swing.JTextField txtSearchStokMasuk;
+    private javax.swing.JTextField txtSearchUser;
     private javax.swing.JTextField txtSupplierMasuk;
     private javax.swing.JTextField txtTujuanKeluar;
+    private javax.swing.JTextField txtUsernameUser;
+    private javax.swing.JPanel userPanel;
     // End of variables declaration//GEN-END:variables
 }

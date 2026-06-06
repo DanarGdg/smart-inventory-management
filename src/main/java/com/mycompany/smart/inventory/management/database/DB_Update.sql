@@ -13,6 +13,15 @@ DROP TABLE IF EXISTS stok_keluar;
 DROP TABLE IF EXISTS stok_masuk;
 DROP TABLE IF EXISTS barang;
 DROP TABLE IF EXISTS kategori;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+    id_user INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL,
+    nama_lengkap VARCHAR(100) NOT NULL,
+    role ENUM('ADMIN', 'PETUGAS') NOT NULL
+);
 
 CREATE TABLE kategori (
     id_kategori INT AUTO_INCREMENT PRIMARY KEY,
@@ -46,6 +55,10 @@ CREATE TABLE stok_keluar (
     tanggal_keluar DATE NOT NULL,
     FOREIGN KEY (kode_barang) REFERENCES barang(kode_barang)
 );
+
+INSERT INTO users (username, password, nama_lengkap, role) VALUES
+('admin', 'admin123', 'Administrator', 'ADMIN'),
+('petugas', 'petugas123', 'Petugas Gudang', 'PETUGAS');
 
 INSERT INTO kategori (nama_kategori) VALUES
 ('Elektronik'),

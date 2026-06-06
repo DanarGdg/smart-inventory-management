@@ -35,7 +35,7 @@ public class SmartInventoryManagement {
         }
 
         java.awt.EventQueue.invokeLater(() -> {
-            new NewJFrame().setVisible(true);
+            new LoginFrame().setVisible(true);
         });
     }
 }
