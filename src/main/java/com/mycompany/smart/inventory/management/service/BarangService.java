@@ -68,11 +68,15 @@ public class BarangService {
                 stokAwal, stokMinimum, satuan);
     }
 
-    public boolean updateBarang(String kodeBarang, String namaBarang,
+    public boolean updateBarang(String kodeBarangLama, String kodeBarangBaru, String namaBarang,
             int idKategori, String stokAwalText,
             String stokMinimumText, String satuan) {
 
-        if (kodeBarang == null || kodeBarang.trim().isEmpty()) {
+        if (kodeBarangLama == null || kodeBarangLama.trim().isEmpty()) {
+            throw new IllegalArgumentException("Kode barang lama tidak boleh kosong");
+        }
+
+        if (kodeBarangBaru == null || kodeBarangBaru.trim().isEmpty()) {
             throw new IllegalArgumentException("Kode barang tidak boleh kosong");
         }
 
@@ -118,7 +122,7 @@ public class BarangService {
             throw new IllegalArgumentException("Satuan tidak boleh kosong");
         }
 
-        return barangDAO.updateBarang(kodeBarang, namaBarang, idKategori,
+        return barangDAO.updateBarang(kodeBarangLama, kodeBarangBaru, namaBarang, idKategori,
                 stokAwal, stokMinimum, satuan);
     }
 

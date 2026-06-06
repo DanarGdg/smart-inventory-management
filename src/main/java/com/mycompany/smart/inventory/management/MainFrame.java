@@ -1575,7 +1575,8 @@ public class MainFrame extends javax.swing.JFrame {
                 return;
             }
 
-            String kodeBarang = selectedKodeBarang;
+            String kodeBarangLama = selectedKodeBarang;
+            String kodeBarangBaru = jTextField1.getText();
             String namaBarang = jTextField2.getText();
             String kategoriSelected = jComboBox1.getSelectedItem().toString();
             int idKategori = getIdKategoriByName(kategoriSelected);
@@ -1591,7 +1592,8 @@ public class MainFrame extends javax.swing.JFrame {
 
             System.out.println("=== DEBUG UPDATE BARANG ===");
             System.out.println("selectedKodeBarang = " + selectedKodeBarang);
-            System.out.println("kodeBarang = " + kodeBarang);
+            System.out.println("kodeBarangLama = " + kodeBarangLama);
+            System.out.println("kodeBarangBaru = " + kodeBarangBaru);
             System.out.println("namaBarang = " + namaBarang);
             System.out.println("kategoriSelected = " + kategoriSelected);
             System.out.println("idKategori = " + idKategori);
@@ -1600,7 +1602,8 @@ public class MainFrame extends javax.swing.JFrame {
             System.out.println("satuan = " + satuan);
 
             boolean berhasil = barangService.updateBarang(
-                    kodeBarang,
+                    kodeBarangLama,
+                    kodeBarangBaru,
                     namaBarang,
                     idKategori,
                     stokAwal,

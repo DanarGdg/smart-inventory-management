@@ -48,23 +48,19 @@ public class BarangDAO {
                 if (namaKategori.equalsIgnoreCase("Elektronik")) {
                     barang = new Elektronik(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else if (namaKategori.equalsIgnoreCase("ATK")) {
                     barang = new ATK(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else if (namaKategori.equalsIgnoreCase("Furniture")) {
                     barang = new Furniture(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else {
                     barang = new Barang(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 }
 
                 list.add(barang);
@@ -102,29 +98,30 @@ public class BarangDAO {
         }
     }
 
-    public boolean updateBarang(String kodeBarang, String namaBarang,
+    public boolean updateBarang(String kodeBarangLama, String kodeBarangBaru, String namaBarang,
             int idKategori, int stokAwal,
             int stokMinimum, String satuan) {
-        String sql = "UPDATE barang SET nama_barang = ?, id_kategori = ?, stok = ?, stok_minimum = ?, satuan = ? "
+        String sql = "UPDATE barang SET kode_barang = ?, nama_barang = ?, id_kategori = ?, stok = ?, stok_minimum = ?, satuan = ? "
                 + "WHERE kode_barang = ?";
 
         try {
             Connection conn = DBConfig.getConnection();
             PreparedStatement ps = conn.prepareStatement(sql);
 
-            ps.setString(1, namaBarang);
-            ps.setInt(2, idKategori);
-            ps.setInt(3, stokAwal);
-            ps.setInt(4, stokMinimum);
-            ps.setString(5, satuan);
-            ps.setString(6, kodeBarang);
+            ps.setString(1, kodeBarangBaru);
+            ps.setString(2, namaBarang);
+            ps.setInt(3, idKategori);
+            ps.setInt(4, stokAwal);
+            ps.setInt(5, stokMinimum);
+            ps.setString(6, satuan);
+            ps.setString(7, kodeBarangLama);
 
             int affectedRows = ps.executeUpdate();
 
             if (affectedRows > 0) {
                 return true;
             } else {
-                System.out.println("Update gagal: kode_barang tidak ditemukan = " + kodeBarang);
+                System.out.println("Update gagal: kode_barang tidak ditemukan = " + kodeBarangLama);
                 return false;
             }
 
@@ -177,23 +174,19 @@ public class BarangDAO {
                 if (namaKategori.equalsIgnoreCase("Elektronik")) {
                     barang = new Elektronik(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else if (namaKategori.equalsIgnoreCase("ATK")) {
                     barang = new ATK(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else if (namaKategori.equalsIgnoreCase("Furniture")) {
                     barang = new Furniture(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 } else {
                     barang = new Barang(
                             kodeBarang, namaBarang, idKategori,
-                            namaKategori, stok, stokMinimum, satuan
-                    );
+                            namaKategori, stok, stokMinimum, satuan);
                 }
 
                 return barang;
