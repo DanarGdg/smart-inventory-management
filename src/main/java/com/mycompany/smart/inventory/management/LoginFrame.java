@@ -300,7 +300,7 @@ public class LoginFrame extends javax.swing.JFrame {
                     "Login berhasil sebagai " + user.getRole()
             );
 
-            NewJFrame mainFrame = new NewJFrame(user);
+            MainFrame mainFrame = new MainFrame(user);
             mainFrame.setVisible(true);
 
             this.dispose();
